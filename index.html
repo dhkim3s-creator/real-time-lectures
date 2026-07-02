@@ -651,8 +651,9 @@
     let isOverlayLayout = false;
     let lectureLogs = []; // { timestamp, ko, en, vi, zh, slide }
 
-    // Gemini API 연동 상수 (런타임에 Key 자동 주입)
-    const apiKey = ""; 
+    // 무료 번역 모드: 별도 ChatGPT/Gemini API 키 없이 브라우저에서 번역 수행
+    // 주의: 공개 번역 엔드포인트를 사용하므로 대량 사용 시 제한될 수 있습니다.
+    const apiKey = "FREE_TRANSLATION_MODE"; 
 
     // =========================================================================
     // DOM 요소 캐싱
@@ -733,42 +734,63 @@
     };
 
     // =========================================================================
-    // Gemini API 실시간 다국어 초고속 번역 코어 (gemini-2.5-flash-preview-09-2025 전용)
+    // 무료 실시간 다국어 번역 코어
+    // - ChatGPT/Gemini 유료 API 키 없이 사용 가능
+    // - Google Translate 공개 엔드포인트를 우선 사용하고, 실패 시 MyMemory로 재시도
     // =========================================================================
-    const translateText = async (text, targetLang) => {
-      if (!text.trim()) return "";
-      
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-      
-      const prompt = `Translate the following Korean lecture transcript into ${targetLang}. 
-Keep the translation highly natural, academic, and context-aware. 
-Provide only the raw translated text, with no preamble, explanations, or quotes.
-Original Text: "${text}"`;
+    const getTargetLangCode = (targetLang) => {
+      const lang = (targetLang || "").toLowerCase();
+      if (lang.includes("english") || lang === "en") return "en";
+      if (lang.includes("vietnam") || lang === "vi") return "vi";
+      if (lang.includes("chinese") || lang.includes("simplified") || lang === "zh") return "zh-CN";
+      return "en";
+    };
 
-      const payload = {
-        contents: [
-          {
-            parts: [
-              { text: prompt }
-            ]
-          }
-        ]
-      };
+    const normalizeTranslation = (value) => {
+      return (value || "")
+        .replace(/\s+/g, " ")
+        .replace(/\s+([,.!?;:])/g, "$1")
+        .trim();
+    };
+
+    const translateWithGoogleFree = async (text, targetCode) => {
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=${encodeURIComponent(targetCode)}&dt=t&q=${encodeURIComponent(text)}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Google free translate failed: ${response.status}`);
+      const data = await response.json();
+      return normalizeTranslation(data?.[0]?.map(item => item?.[0] || "").join(""));
+    };
+
+    const translateWithMyMemory = async (text, targetCode) => {
+      const safeTargetCode = targetCode === "zh-CN" ? "zh-CN" : targetCode;
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=ko|${encodeURIComponent(safeTargetCode)}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`MyMemory translate failed: ${response.status}`);
+      const data = await response.json();
+      return normalizeTranslation(data?.responseData?.translatedText || "");
+    };
+
+    const translateText = async (text, targetLang) => {
+      const sourceText = normalizeTranslation(text);
+      if (!sourceText) return "";
+
+      const targetCode = getTargetLangCode(targetLang);
 
       try {
-        const data = await fetchWithRetry(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payload)
-        });
-        
-        return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-      } catch (err) {
-        console.error("Gemini API 번역 오류:", err);
-        return `[번역 오류 - 다시 시도 중]`;
+        const translated = await translateWithGoogleFree(sourceText, targetCode);
+        if (translated) return translated;
+        throw new Error("Empty Google translation result");
+      } catch (primaryErr) {
+        console.warn("Google 무료 번역 실패, MyMemory로 재시도:", primaryErr);
+        try {
+          const fallbackTranslated = await translateWithMyMemory(sourceText, targetCode);
+          if (fallbackTranslated) return fallbackTranslated;
+        } catch (fallbackErr) {
+          console.error("MyMemory 번역도 실패:", fallbackErr);
+        }
       }
+
+      return "[번역 실패: 네트워크 또는 무료 번역 서버 제한]";
     };
 
     // =========================================================================
