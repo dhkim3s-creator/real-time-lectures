@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>스마트 플래너 - 실시간 일정 관리</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome 아이콘 CDN (리액트 lucide-react 아이콘 대체) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    /* 스크롤바 커스텀 */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col antialiased">
+
+  <!-- 로딩 스크린 -->
+  <div id="loadingScreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950">
+    <div class="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+    <p class="mt-4 text-slate-400 font-medium text-sm">플래너를 안전하게 불러오는 중...</p>
+  </div>
+
+  <!-- 1. 상단 글로벌 헤더 -->
+  <header class="sticky top-0 z-10 bg-slate-800 border-b border-slate-700/80 px-4 py-3 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-500/20">
+          <i class="fa-solid fa-calendar-days text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            스마트 플래너
+            <span class="text-xs font-normal text-slate-400 bg-slate-700 px-2 py-0.5 rounded-full">v2.6-HTML</span>
+          </h1>
+          <p class="text-xs text-slate-400">실시간 데이터 동기화 일정 관리</p>
+        </div>
+      </div>
+
+      <!-- 연결 상태 표시 및 제어 버튼 -->
+      <div class="flex items-center space-x-4">
+        <div id="dbStatusBadge" class="flex items-center space-x-2 bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-700 text-xs">
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+          </span>
+          <span class="text-amber-400">연결 중...</span>
+        </div>
+
+        <button
+          onclick="openAddModalWithDate(new Date())"
+          class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/10 active:scale-95 duration-150"
+        >
+          <i class="fa-solid fa-plus text-xs"></i>
+          <span class="hidden sm:inline">일정 추가</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. 메인 콘텐츠 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    
+    <!-- 왼쪽 섹션 (필터 및 선택된 일정 목록) - col 4 -->
+    <section class="lg:col-span-4 flex flex-col gap-6">
+      <!-- 필터 카드 -->
+      <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-sm">
+        <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2 mb-4">
+          <i class="fa-solid fa-filter text-indigo-400"></i>
+          카테고리 필터
+        </h3>
+        <div id="categoryFilters" class="flex flex-wrap lg:flex-col gap-2">
+          <!-- JS에서 동적으로 필터 렌더링 -->
+        </div>
+      </div>
+
+      <!-- 선택된 날짜의 일정 목록 -->
+      <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex-1 flex flex-col min-h-[300px]">
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
+          <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+            선택한 날짜의 일정
+          </h3>
+          <span id="selectedDateLabel" class="text-xs text-indigo-400 font-semibold bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
+            날짜 선택됨
+          </span>
+        </div>
+
+        <div id="agendaList" class="flex-1 space-y-3 overflow-y-auto max-h-[450px] pr-1">
+          <!-- 일정 리스트가 동적으로 렌더링됩니다 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 오른쪽 섹션 (달력 영역) - col 8 -->
+    <section class="lg:col-span-8 bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-700 shadow-sm flex flex-col justify-between">
+      <div>
+        <!-- 달력 컨트롤러 (드롭다운 선택식 연도/월 내장) -->
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-calendar text-indigo-400 text-lg"></i>
+            <div class="flex items-center gap-1.5">
+              <select id="yearSelect" class="bg-slate-700 hover:bg-slate-650 text-white font-bold text-base sm:text-lg rounded-xl px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-slate-600 cursor-pointer transition">
+                <!-- JS에서 동적으로 연도 채움 -->
+              </select>
+              <span class="text-slate-400 text-sm font-medium">년</span>
+              <select id="monthSelect" class="bg-slate-700 hover:bg-slate-650 text-white font-bold text-base sm:text-lg rounded-xl px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-slate-600 cursor-pointer transition">
+                <!-- JS에서 동적으로 월 채움 -->
+              </select>
+              <span class="text-slate-400 text-sm font-medium">월</span>
+            </div>
+          </div>
+          <div class="flex space-x-1">
+            <button
+              onclick="handlePrevMonth()"
+              class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition"
+            >
+              <i class="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            <button
+              onclick="handleToday()"
+              class="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-lg transition"
+            >
+              오늘
+            </button>
+            <button
+              onclick="handleNextMonth()"
+              class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition"
+            >
+              <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 주간 요일 헤더 -->
+        <div class="grid grid-cols-7 gap-1 text-center mb-2">
+          <div class="text-xs font-bold py-2 text-rose-400">일</div>
+          <div class="text-xs font-bold py-2 text-slate-400">월</div>
+          <div class="text-xs font-bold py-2 text-slate-400">화</div>
+          <div class="text-xs font-bold py-2 text-slate-400">수</div>
+          <div class="text-xs font-bold py-2 text-slate-400">목</div>
+          <div class="text-xs font-bold py-2 text-slate-400">금</div>
+          <div class="text-xs font-bold py-2 text-blue-400">토</div>
+        </div>
+
+        <!-- 캘린더 그리드 -->
+        <div id="calendarGrid" class="grid grid-cols-7 gap-1.5 aspect-[7/6] min-h-[350px]">
+          <!-- 일자 카드들이 동적으로 생성됩니다 -->
+        </div>
+      </div>
+
+      <!-- 달력 하단 색상 가이드 -->
+      <div class="mt-4 pt-3 border-t border-slate-700/60 flex flex-wrap justify-between items-center text-xs text-slate-400 gap-2">
+        <span class="flex items-center gap-1">
+          <i class="fa-solid fa-circle-info text-indigo-400"></i>
+          날짜 칸을 누르면 새로운 일정을 즉시 생성할 수 있습니다.
+        </span>
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span>업무</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>개인</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span>중요</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 3. 모달 (일정 등록 팝업) -->
+  <div id="scheduleModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+    <div class="bg-slate-800 rounded-2xl border border-slate-700 max-w-md w-full overflow-hidden shadow-2xl">
+      <!-- 모달 헤더 -->
+      <div class="px-6 py-4 bg-slate-700/40 border-b border-slate-700 flex justify-between items-center">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-plus text-indigo-400"></i>
+          새 일정 추가하기
+        </h3>
+        <button 
+          onclick="closeModal()"
+          class="text-slate-400 hover:text-white transition text-lg"
+        >
+          ✕
+        </button>
+      </div>
+
+      <!-- 모달 본문 폼 -->
+      <form id="scheduleForm" class="p-6 space-y-4" onsubmit="handleAddSchedule(event)">
+        <div id="modalError" class="bg-rose-500/20 border border-rose-500/40 p-3 rounded-xl text-xs text-rose-300 flex items-center gap-2 hidden">
+          <i class="fa-solid fa-circle-exclamation shrink-0"></i>
+          <span id="modalErrorMessage">에러 메시지</span>
+        </div>
+
+        <!-- 제목 -->
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">일정 제목 <span class="text-rose-400">*</span></label>
+          <input
+            type="text"
+            id="newTitle"
+            placeholder="예: 프로젝트 기획 회의"
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+            maxlength="50"
+            required
+          />
+        </div>
+
+        <!-- 날짜 및 시간 -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">날짜 <span class="text-rose-400">*</span></label>
+            <input
+              type="date"
+              id="newDate"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition"
+              required
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">시간</label>
+            <input
+              type="time"
+              id="newTime"
+              value="12:00"
+              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition"
+            />
+          </div>
+        </div>
+
+        <!-- 카테고리 선택 -->
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-2 uppercase">카테고리</label>
+          <div id="categoryButtonContainer" class="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            <!-- JS를 통해 선택 버튼들이 동적으로 추가됩니다 -->
+          </div>
+        </div>
+
+        <!-- 메모/설명 -->
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">상세 내용 (메모)</label>
+          <textarea
+            id="newMemo"
+            placeholder="추가 세부 사항을 작성해 주세요..."
+            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition h-20 resize-none"
+            maxlength="150"
+          ></textarea>
+        </div>
+
+        <!-- 하단 제어 -->
+        <div class="flex space-x-2 pt-2">
+          <button
+            type="button"
+            onclick="closeModal()"
+            class="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm font-semibold transition"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-indigo-600/10"
+          >
+            등록 완료
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Custom Alert Toast (alert 대체용 브라우저 친화적 알림창) -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-800 text-slate-100 border border-slate-700 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toastMessage" class="text-sm font-medium">일정이 정상적으로 처리되었습니다.</span>
+  </div>
+
+  <!-- Firebase 및 애플리케이션 핵심 스크립트 모듈 -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+    import { 
+      getAuth, 
+      signInWithCustomToken, 
+      signInAnonymously, 
+      onAuthStateChanged 
+    } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+    import { 
+      getFirestore, 
+      collection, 
+      doc, 
+      addDoc, 
+      deleteDoc, 
+      onSnapshot 
+    } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+    // ==========================================
+    // Firebase 설정 (시스템 환경 변수 우선 연동)
+    // ==========================================
+    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+      ? JSON.parse(__firebase_config) 
+      : {
+          apiKey: "",
+          authDomain: "default-app.firebaseapp.com",
+          projectId: "default-app",
+          storageBucket: "default-app.appspot.com",
+          messagingSenderId: "123456789",
+          appId: "1:123456789:web:123456"
+        };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'smart-planner-app';
+
+    // 글로벌 상태 객체
+    const state = {
+      user: null,
+      schedules: [],
+      dbStatus: 'connecting',
+      currentDate: new Date(),
+      selectedDate: new Date(),
+      filterCategory: 'all',
+      selectedModalCategory: 'work'
+    };
+
+    // 카테고리 고정 정의
+    const CATEGORIES = {
+      work: { label: '업무', color: 'bg-blue-500', text: 'text-blue-500', border: 'border-blue-500', light: 'bg-blue-500/10' },
+      personal: { label: '개인', color: 'bg-emerald-500', text: 'text-emerald-500', border: 'border-emerald-500', light: 'bg-emerald-500/10' },
+      important: { label: '중요', color: 'bg-rose-500', text: 'text-rose-500', border: 'border-rose-500', light: 'bg-rose-500/10' },
+      family: { label: '가족/모임', color: 'bg-amber-500', text: 'text-amber-500', border: 'border-amber-500', light: 'bg-amber-500/10' },
+      etc: { label: '기타', color: 'bg-purple-500', text: 'text-purple-500', border: 'border-purple-500', light: 'bg-purple-500/10' },
+    };
+
+    // Toast 팝업 도구 함수
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastIcon = document.getElementById('toastIcon');
+      const toastMessage = document.getElementById('toastMessage');
+
+      toastMessage.textContent = message;
+      if (type === 'error') {
+        toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-500';
+      } else {
+        toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+      }
+
+      toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+      }, 3000);
+    }
+
+    // DB 상태 UI 업데이트
+    function updateDbStatusUI() {
+      const badge = document.getElementById('dbStatusBadge');
+      if (state.dbStatus === 'connecting') {
+        badge.innerHTML = `
+          <span class="relative flex h-2.5 w-2.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+          </span>
+          <span class="text-amber-400">연결 중...</span>
+        `;
+      } else if (state.dbStatus === 'synced') {
+        badge.innerHTML = `
+          <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+          <span class="text-emerald-400 flex items-center gap-1">
+            <i class="fa-solid fa-wifi text-[10px]"></i> 실시간 동기화 완료
+          </span>
+        `;
+      } else {
+        badge.innerHTML = `
+          <span class="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+          <span class="text-rose-400 flex items-center gap-1">
+            <i class="fa-solid fa-cloud-bolt text-[10px]"></i> 오프라인 모드
+          </span>
+        `;
+      }
+    }
+
+    // 날짜 포맷 변환 유틸리티
+    function getFormatDateStr(date) {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    // 달력 날짜 목록 계산
+    function getDaysInMonth(date) {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const firstDay = new Date(year, month, 1).getDay();
+      const totalDays = new Date(year, month + 1, 0).getDate();
+      const days = [];
+      
+      const prevMonthTotalDays = new Date(year, month, 0).getDate();
+      for (let i = firstDay - 1; i >= 0; i--) {
+        days.push({
+          date: new Date(year, month - 1, prevMonthTotalDays - i),
+          isCurrentMonth: false
+        });
+      }
+      for (let i = 1; i <= totalDays; i++) {
+        days.push({
+          date: new Date(year, month, i),
+          isCurrentMonth: true
+        });
+      }
+      const remaining = 42 - days.length;
+      for (let i = 1; i <= remaining; i++) {
+        days.push({
+          date: new Date(year, month + 1, i),
+          isCurrentMonth: false
+        });
+      }
+      return days;
+    }
+
+    // 특정 날짜 & 필터에 부합하는 일정 리스트 가져오기
+    function getSchedulesForDate(date) {
+      const dateStr = getFormatDateStr(date);
+      return state.schedules.filter(s => {
+        const matchDate = s.date === dateStr;
+        const matchCategory = state.filterCategory === 'all' || s.category === state.filterCategory;
+        return matchDate && matchCategory;
+      });
+    }
+
+    // 카테고리 필터 UI 구성
+    function renderCategoryFilters() {
+      const container = document.getElementById('categoryFilters');
+      let html = `
+        <button
+          id="btn-filter-all"
+          class="flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all text-left w-full sm:w-auto lg:w-full ${
+            state.filterCategory === 'all'
+              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/50 font-semibold'
+              : 'bg-slate-700/40 text-slate-300 border border-transparent hover:bg-slate-700'
+          }"
+        >
+          <span class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
+            전체 일정 보기
+          </span>
+          <span class="text-xs bg-slate-800 px-2 py-0.5 rounded-md text-slate-400">
+            ${state.schedules.length}
+          </span>
+        </button>
+      `;
+
+      Object.entries(CATEGORIES).map(([key, value]) => {
+        const count = state.schedules.filter(s => s.category === key).length;
+        html += `
+          <button
+            id="btn-filter-${key}"
+            class="flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all text-left w-full sm:w-auto lg:w-full ${
+              state.filterCategory === key
+                ? 'bg-slate-700 text-white border border-slate-500 font-semibold'
+                : 'bg-slate-700/20 text-slate-300 border border-transparent hover:bg-slate-700/60'
+            }"
+          >
+            <span class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full ${value.color}"></span>
+              ${value.label}
+            </span>
+            <span class="text-xs bg-slate-800/80 px-2 py-0.5 rounded-md text-slate-400">
+              ${count}
+            </span>
+          </button>
+        `;
+      });
+
+      container.innerHTML = html;
+
+      // 필터 클릭 이벤트 바인딩
+      document.getElementById('btn-filter-all').onclick = () => {
+        state.filterCategory = 'all';
+        renderFiltersAndCalendarAndAgenda();
+      };
+      Object.keys(CATEGORIES).forEach(key => {
+        document.getElementById(`btn-filter-${key}`).onclick = () => {
+          state.filterCategory = key;
+          renderFiltersAndCalendarAndAgenda();
+        };
+      });
+    }
+
+    // 일정 목록(아젠다) 렌더링
+    function renderAgenda() {
+      const agendaList = document.getElementById('agendaList');
+      const selectedDateLabel = document.getElementById('selectedDateLabel');
+      
+      const mm = state.selectedDate.getMonth() + 1;
+      const dd = state.selectedDate.getDate();
+      selectedDateLabel.textContent = `${mm}월 ${dd}일`;
+
+      const list = getSchedulesForDate(state.selectedDate);
+
+      if (list.length === 0) {
+        agendaList.innerHTML = `
+          <div class="flex-1 flex flex-col items-center justify-center text-center p-6 text-slate-500">
+            <i class="fa-solid fa-calendar-minus text-4xl mb-2 text-slate-600"></i>
+            <p class="text-sm font-medium">등록된 일정이 없습니다.</p>
+            <p class="text-xs text-slate-500 mt-1">우측 달력을 클릭하여 새 일정을 추가해보세요.</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      list.forEach(schedule => {
+        const cat = CATEGORIES[schedule.category] || CATEGORIES.etc;
+        html += `
+          <div class="group relative bg-slate-900/60 p-4 rounded-xl border border-slate-700 hover:border-slate-600 transition duration-150 flex flex-col justify-between">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full ${cat.color} shrink-0"></span>
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
+                  ${cat.label}
+                </span>
+              </div>
+              <button
+                class="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-500 hover:text-rose-400 p-1 rounded-md transition duration-150 delete-btn"
+                data-id="${schedule.id}"
+                title="일정 삭제"
+              >
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+
+            <h4 class="text-slate-100 font-semibold text-sm mt-2 break-all line-clamp-2">
+              ${schedule.title}
+            </h4>
+
+            ${schedule.memo ? `
+              <p class="text-xs text-slate-400 mt-1.5 break-all line-clamp-2 bg-slate-800/40 p-2 rounded border border-slate-800">
+                ${schedule.memo}
+              </p>
+            ` : ''}
+
+            <div class="flex items-center gap-1.5 mt-3 text-xs text-slate-400 pt-2 border-t border-slate-800">
+              <i class="fa-regular fa-clock text-indigo-400"></i>
+              <span>${schedule.time}</span>
+            </div>
+          </div>
+        `;
+      });
+
+      agendaList.innerHTML = html;
+
+      // 삭제 핸들러 연동
+      const deleteButtons = agendaList.querySelectorAll('.delete-btn');
+      deleteButtons.forEach(btn => {
+        btn.onclick = async (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          await handleDeleteSchedule(id);
+        };
+      });
+    }
+
+    // 연도 및 월 드롭다운 옵션 초기화
+    function initYearMonthSelectors() {
+      const yearSelect = document.getElementById('yearSelect');
+      const monthSelect = document.getElementById('monthSelect');
+
+      yearSelect.innerHTML = '';
+      monthSelect.innerHTML = '';
+
+      // 현재 연도 기준으로 전후 10년의 범위를 가짐
+      const currentYear = new Date().getFullYear();
+      for (let y = currentYear - 10; y <= currentYear + 10; y++) {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y;
+        yearSelect.appendChild(option);
+      }
+
+      // 1월부터 12월까지 구성 (Date 객체의 month 가 index 이므로 0부터 시작)
+      for (let m = 0; m < 12; m++) {
+        const option = document.createElement('option');
+        option.value = m;
+        option.textContent = m + 1;
+        monthSelect.appendChild(option);
+      }
+
+      // 선택 변경 이벤트 바인딩
+      yearSelect.addEventListener('change', (e) => {
+        state.currentDate.setFullYear(parseInt(e.target.value));
+        renderCalendar();
+      });
+
+      monthSelect.addEventListener('change', (e) => {
+        state.currentDate.setMonth(parseInt(e.target.value));
+        renderCalendar();
+      });
+    }
+
+    // 달력 본체 렌더링
+    function renderCalendar() {
+      const yearSelect = document.getElementById('yearSelect');
+      const monthSelect = document.getElementById('monthSelect');
+      const calendarGrid = document.getElementById('calendarGrid');
+
+      // 드롭다운 값 동기화
+      yearSelect.value = state.currentDate.getFullYear();
+      monthSelect.value = state.currentDate.getMonth();
+
+      calendarGrid.innerHTML = '';
+
+      const days = getDaysInMonth(state.currentDate);
+
+      days.forEach((dayObj, index) => {
+        const dateSchedules = getSchedulesForDate(dayObj.date);
+        
+        // 날짜 구분자 체크
+        const dayIsToday = getFormatDateStr(dayObj.date) === getFormatDateStr(new Date());
+        const dayIsSelected = getFormatDateStr(dayObj.date) === getFormatDateStr(state.selectedDate);
+        const isSunday = dayObj.date.getDay() === 0;
+        const isSaturday = dayObj.date.getDay() === 6;
+
+        const dateItem = document.createElement('div');
+        dateItem.className = `relative flex flex-col justify-between p-1 sm:p-2 rounded-xl cursor-pointer transition border duration-150 select-none overflow-hidden ${
+          !dayObj.isCurrentMonth ? 'opacity-30' : ''
+        } ${
+          dayIsSelected
+            ? 'bg-indigo-600/30 border-indigo-500 shadow-inner shadow-indigo-500/20'
+            : 'bg-slate-900/40 hover:bg-slate-700/60 border-slate-700/60'
+        }`;
+
+        // 클릭 이벤트 연결
+        dateItem.onclick = () => {
+          openAddModalWithDate(dayObj.date);
+        };
+
+        // 날짜 숫자 라벨 테두리 스타일
+        let numberClass = 'text-slate-300';
+        if (dayIsToday) {
+          numberClass = 'bg-indigo-600 text-white shadow-md';
+        } else if (isSunday) {
+          numberClass = 'text-rose-400';
+        } else if (isSaturday) {
+          numberClass = 'text-blue-400';
+        }
+
+        // 스케줄 미니 프리뷰 생성
+        let previewsHtml = '';
+        dateSchedules.slice(0, 3).forEach(s => {
+          const cat = CATEGORIES[s.category] || CATEGORIES.etc;
+          previewsHtml += `
+            <div class="text-[10px] truncate px-1.5 py-0.5 rounded-md flex items-center gap-1 ${cat.light} ${cat.text}" title="${s.title}">
+              <span class="w-1.5 h-1.5 rounded-full ${cat.color} shrink-0"></span>
+              <span class="truncate">{s.title}</span>
+            </div>
+          `;
+        });
+
+        if (dateSchedules.length > 3) {
+          previewsHtml += `
+            <div class="text-[9px] text-slate-400 pl-1">
+              외 ${dateSchedules.length - 3}개...
+            </div>
+          `;
+        }
+
+        dateItem.innerHTML = `
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${numberClass}">
+              ${dayObj.date.getDate()}
+            </span>
+            ${dateSchedules.length > 0 ? `
+              <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 rounded-full font-bold lg:hidden">
+                ${dateSchedules.length}
+              </span>
+            ` : ''}
+          </div>
+          <div class="hidden lg:flex flex-col gap-1 flex-1 justify-end overflow-hidden">
+            ${previewsHtml}
+          </div>
+        `;
+
+        calendarGrid.appendChild(dateItem);
+      });
+    }
+
+    // 모달 내 카테고리 선택 버튼들 동적 배치
+    function renderModalCategoryButtons() {
+      const container = document.getElementById('categoryButtonContainer');
+      container.innerHTML = '';
+
+      Object.entries(CATEGORIES).forEach(([key, value]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => {
+          state.selectedModalCategory = key;
+          renderModalCategoryButtons();
+        };
+
+        const isActive = state.selectedModalCategory === key;
+        btn.className = `py-2 rounded-xl text-xs font-semibold border flex flex-col items-center justify-center gap-1 transition ${
+          isActive
+            ? 'bg-slate-700 text-white border-slate-500'
+            : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:bg-slate-900'
+        }`;
+
+        btn.innerHTML = `
+          <span class="w-2.5 h-2.5 rounded-full ${value.color}"></span>
+          ${value.label}
+        `;
+
+        container.appendChild(btn);
+      });
+    }
+
+    // 종합 렌더러
+    function renderFiltersAndCalendarAndAgenda() {
+      renderCategoryFilters();
+      renderCalendar();
+      renderAgenda();
+    }
+
+    // 모달 관리 핸들러들 (글로벌 윈도우 연결)
+    window.openAddModalWithDate = function(date) {
+      state.selectedDate = date;
+      document.getElementById('newDate').value = getFormatDateStr(date);
+      document.getElementById('newTitle').value = '';
+      document.getElementById('newMemo').value = '';
+      document.getElementById('modalError').classList.add('hidden');
+      state.selectedModalCategory = 'work'; // 기본값
+
+      renderModalCategoryButtons();
+      renderCalendar(); // 선택 날짜 하이라이트 반영
+      renderAgenda();
+
+      const modal = document.getElementById('scheduleModal');
+      modal.classList.remove('hidden');
+    };
+
+    window.closeModal = function() {
+      const modal = document.getElementById('scheduleModal');
+      modal.classList.add('hidden');
+    };
+
+    // 달력 조작 핸들러들
+    window.handlePrevMonth = function() {
+      state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() - 1, 1);
+      renderCalendar();
+    };
+
+    window.handleNextMonth = function() {
+      state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() + 1, 1);
+      renderCalendar();
+    };
+
+    window.handleToday = function() {
+      state.currentDate = new Date();
+      state.selectedDate = new Date();
+      renderFiltersAndCalendarAndAgenda();
+    };
+
+    // 일정 추가 저장 트랜잭션
+    window.handleAddSchedule = async function(e) {
+      e.preventDefault();
+      
+      const title = document.getElementById('newTitle').value.trim();
+      const date = document.getElementById('newDate').value;
+      const time = document.getElementById('newTime').value;
+      const memo = document.getElementById('newMemo').value;
+      const errorDiv = document.getElementById('modalError');
+      const errorMessage = document.getElementById('modalErrorMessage');
+
+      if (!state.user) {
+        errorMessage.textContent = "사용자 인증 오류입니다. 다시 열어주세요.";
+        errorDiv.classList.remove('hidden');
+        return;
+      }
+      if (!title) {
+        errorMessage.textContent = "일정 제목을 적어주세요.";
+        errorDiv.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const path = collection(db, 'artifacts', appId, 'users', state.user.uid, 'schedules');
+        await addDoc(path, {
+          title: title,
+          date: date,
+          time: time,
+          category: state.selectedModalCategory,
+          memo: memo,
+          createdAt: new Date().toISOString()
+        });
+
+        closeModal();
+        showToast("일정이 성공적으로 저장되었습니다!");
+      } catch (err) {
+        console.error(err);
+        errorMessage.textContent = "서버 저장에 실패했습니다. 다시 시도해주세요.";
+        errorDiv.classList.remove('hidden');
+      }
+    };
+
+    // 일정 삭제 트랜잭션
+    async function handleDeleteSchedule(id) {
+      if (!state.user) return;
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'schedules', id);
+        await deleteDoc(docRef);
+        showToast("일정이 성공적으로 삭제되었습니다.");
+      } catch (err) {
+        console.error("일정 제거 실패:", err);
+        showToast("삭제 중 오류가 발생했습니다.", "error");
+      }
+    }
+
+    // ==========================================
+    // 앱 부팅 및 인증 플로우 (Rule 3 준수)
+    // ==========================================
+    async function initApp() {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("Firebase Auth 인증 실패:", error);
+        state.dbStatus = 'error';
+        updateDbStatusUI();
+      }
+
+      // 인증 상태 리스너 등록
+      onAuthStateChanged(auth, (currentUser) => {
+        if (currentUser) {
+          state.user = currentUser;
+          document.getElementById('loadingScreen').classList.add('hidden');
+          // 드롭다운 셀렉터 세팅
+          initYearMonthSelectors();
+          // 데이터 스트리밍 시작
+          startSchedulesRealtimeSync();
+        }
+      });
+    }
+
+    // Firestore 실시간 스냅샷 구동 (Rule 1 & Rule 2 준수)
+    function startSchedulesRealtimeSync() {
+      state.dbStatus = 'connecting';
+      updateDbStatusUI();
+
+      // Rule 1: 개인 프라이빗 데이터 보관 전용 경로 정의
+      const ref = collection(db, 'artifacts', appId, 'users', state.user.uid, 'schedules');
+
+      // Rule 2: 복합 쿼리를 배제하고 인메모리 정렬 기법을 적용하여 쿼리 실패 차단
+      onSnapshot(ref, 
+        (snapshot) => {
+          const list = [];
+          snapshot.forEach(doc => {
+            list.push({ id: doc.id, ...doc.data() });
+          });
+
+          // 인메모리 정렬 실행 (날짜 오름차순, 날짜가 같다면 시간 기준 오름차순)
+          list.sort((a, b) => {
+            const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+            if (dateDiff !== 0) return dateDiff;
+            return a.time.localeCompare(b.time);
+          });
+
+          state.schedules = list;
+          state.dbStatus = 'synced';
+          
+          updateDbStatusUI();
+          renderFiltersAndCalendarAndAgenda();
+        },
+        (error) => {
+          console.error("Firestore 수신 중단:", error);
+          state.dbStatus = 'error';
+          updateDbStatusUI();
+        }
+      );
+    }
+
+    // 도큐먼트 로드 직후 플래너 초기 실행 트리거
+    window.onload = () => {
+      initApp();
+    };
+  </script>
+</body>
+</html>
