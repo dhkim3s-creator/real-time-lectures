@@ -3,344 +3,572 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>스마트 플래너 - 실시간 일정 관리</title>
+  <title>우송 글로벌 렉처 트랜스레이터 - 실시간 다국어 자막 강의 시스템</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- FontAwesome 아이콘 CDN (리액트 lucide-react 아이콘 대체) -->
+  <!-- FontAwesome 아이콘 CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
+  <!-- JSZip 라이브러리 (PPTX 파일 실시간 압축 해제 및 파싱 전용) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- PDF.js 라이브러리 (PDF 파일 실시간 렌더링 및 텍스트 추출 전용) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  
   <style>
+    /* 미려한 자막 가독성을 위한 특수 서체 세팅 및 애니메이션 */
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght=300;400;500;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+    .subtitle-glow {
+      text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+    }
     /* 스크롤바 커스텀 */
     ::-webkit-scrollbar {
       width: 6px;
+      height: 6px;
     }
     ::-webkit-scrollbar-track {
-      background: #1e293b;
+      background: #0f172a;
     }
     ::-webkit-scrollbar-thumb {
-      background: #475569;
-      border-radius: 3px;
+      background: #334155;
+      border-radius: 4px;
     }
     ::-webkit-scrollbar-thumb:hover {
-      background: #64748b;
+      background: #475569;
     }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col antialiased">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased">
 
   <!-- 로딩 스크린 -->
   <div id="loadingScreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950">
-    <div class="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-    <p class="mt-4 text-slate-400 font-medium text-sm">플래너를 안전하게 불러오는 중...</p>
+    <div class="w-16 h-16 border-4 border-rose-600 border-t-transparent rounded-full animate-spin"></div>
+    <p class="mt-4 text-slate-400 font-medium text-sm">시스템을 불러오는 중...</p>
   </div>
 
-  <!-- 1. 상단 글로벌 헤더 -->
-  <header class="sticky top-0 z-10 bg-slate-800 border-b border-slate-700/80 px-4 py-3 shadow-md">
+  <!-- 1. 메인 헤더 벨트 -->
+  <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 shadow-md">
     <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3">
       <div class="flex items-center space-x-3">
-        <div class="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-500/20">
-          <i class="fa-solid fa-calendar-days text-xl"></i>
+        <div class="p-2 bg-rose-600 text-white rounded-xl shadow-lg shadow-rose-600/30">
+          <i class="fa-solid fa-language text-2xl animate-pulse"></i>
         </div>
         <div>
-          <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-            스마트 플래너
-            <span class="text-xs font-normal text-slate-400 bg-slate-700 px-2 py-0.5 rounded-full">v2.6-HTML</span>
-          </h1>
-          <p class="text-xs text-slate-400">실시간 데이터 동기화 일정 관리</p>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold text-white tracking-tight">Woosong Global Lecture</h1>
+            <span class="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full border border-red-500/30 font-bold uppercase">Live Translator</span>
+          </div>
+          <p class="text-xs text-slate-400">우송대학교 다국어 학생 지원 실시간 음성인식 슬라이드 번역기</p>
         </div>
       </div>
 
-      <!-- 연결 상태 표시 및 제어 버튼 -->
-      <div class="flex items-center space-x-4">
-        <div id="dbStatusBadge" class="flex items-center space-x-2 bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-700 text-xs">
-          <span class="relative flex h-2.5 w-2.5">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-          </span>
-          <span class="text-amber-400">연결 중...</span>
+      <!-- 제어 및 마이크 상태 바 -->
+      <div class="flex items-center space-x-3 flex-wrap">
+        <div id="micStatus" class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800 text-xs text-slate-400">
+          <span class="h-2 w-2 rounded-full bg-slate-500" id="micIndicator"></span>
+          <span id="micText">마이크 비활성화</span>
         </div>
-
-        <button
-          onclick="openAddModalWithDate(new Date())"
-          class="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/10 active:scale-95 duration-150"
-        >
-          <i class="fa-solid fa-plus text-xs"></i>
-          <span class="hidden sm:inline">일정 추가</span>
-        </button>
+        
+        <div id="apiStatus" class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800 text-xs text-slate-400">
+          <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+          <span>Gemini 번역 엔진 연결</span>
+        </div>
       </div>
     </div>
   </header>
 
-  <!-- 2. 메인 콘텐츠 -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+  <!-- 2. 강의 메인 레이아웃 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
     
-    <!-- 왼쪽 섹션 (필터 및 선택된 일정 목록) - col 4 -->
-    <section class="lg:col-span-4 flex flex-col gap-6">
-      <!-- 필터 카드 -->
-      <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 shadow-sm">
-        <h3 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2 mb-4">
-          <i class="fa-solid fa-filter text-indigo-400"></i>
-          카테고리 필터
-        </h3>
-        <div id="categoryFilters" class="flex flex-wrap lg:flex-col gap-2">
-          <!-- JS에서 동적으로 필터 렌더링 -->
-        </div>
-      </div>
-
-      <!-- 선택된 날짜의 일정 목록 -->
-      <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700 flex-1 flex flex-col min-h-[300px]">
-        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
-          <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
-            <i class="fa-solid fa-circle-check text-emerald-400"></i>
-            선택한 날짜의 일정
-          </h3>
-          <span id="selectedDateLabel" class="text-xs text-indigo-400 font-semibold bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/20">
-            날짜 선택됨
-          </span>
-        </div>
-
-        <div id="agendaList" class="flex-1 space-y-3 overflow-y-auto max-h-[450px] pr-1">
-          <!-- 일정 리스트가 동적으로 렌더링됩니다 -->
-        </div>
-      </div>
-    </section>
-
-    <!-- 오른쪽 섹션 (달력 영역) - col 8 -->
-    <section class="lg:col-span-8 bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-700 shadow-sm flex flex-col justify-between">
-      <div>
-        <!-- 달력 컨트롤러 (드롭다운 선택식 연도/월 내장) -->
-        <div class="flex items-center justify-between mb-6">
+    <!-- 왼쪽: 슬라이드 영역 및 자막 출력판 (col-span-8) -->
+    <div class="lg:col-span-8 flex flex-col space-y-4">
+      
+      <!-- [슬라이드 컨테이너 및 PPTX/PDF 드롭존] (레이아웃 개선형) -->
+      <div 
+        id="slideContainer" 
+        class="relative bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300"
+      >
+        <!-- A. 상단 전용 컨트롤 바 (슬라이드를 덮지 않도록 상위에 일반 배치) -->
+        <div class="bg-slate-950/80 border-b border-slate-800/80 p-3 flex flex-wrap justify-between items-center gap-3 z-20">
           <div class="flex items-center space-x-2">
-            <i class="fa-solid fa-calendar text-indigo-400 text-lg"></i>
-            <div class="flex items-center gap-1.5">
-              <select id="yearSelect" class="bg-slate-700 hover:bg-slate-650 text-white font-bold text-base sm:text-lg rounded-xl px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-slate-600 cursor-pointer transition">
-                <!-- JS에서 동적으로 연도 채움 -->
-              </select>
-              <span class="text-slate-400 text-sm font-medium">년</span>
-              <select id="monthSelect" class="bg-slate-700 hover:bg-slate-650 text-white font-bold text-base sm:text-lg rounded-xl px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 border border-slate-600 cursor-pointer transition">
-                <!-- JS에서 동적으로 월 채움 -->
-              </select>
-              <span class="text-slate-400 text-sm font-medium">월</span>
+            <span class="text-xs font-bold bg-rose-600 text-white px-2.5 py-1 rounded-lg shadow">
+              Slide <span id="currentSlideIndex">1</span>/<span id="totalSlidesCount">3</span>
+            </span>
+            <span id="slideTypeBadge" class="text-[10px] font-bold bg-slate-800 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700">
+              강의 모드
+            </span>
+          </div>
+          
+          <div class="flex items-center space-x-2">
+            <!-- 항상 노출되는 직관적인 순수 강의교안 선택기 -->
+            <div class="flex items-center space-x-1.5 bg-slate-900 p-1.5 rounded-xl border border-slate-850">
+              <span class="text-[10px] text-rose-400 font-extrabold uppercase tracking-wider px-1 hidden sm:inline">
+                <i class="fa-solid fa-folder-open mr-1"></i>교안 파일 선택
+              </span>
+              <input 
+                type="file" 
+                id="mainPptxInput" 
+                accept=".pptx, .pdf" 
+                class="block w-40 sm:w-48 text-[11px] text-slate-400
+                       file:mr-2 file:py-0.5 file:px-2.5
+                       file:rounded-md file:border-0
+                       file:text-[10px] file:font-black
+                       file:bg-rose-600 file:text-white
+                       hover:file:bg-rose-500
+                       cursor-pointer bg-slate-950 border border-slate-800 rounded-lg p-0.5"
+              />
+            </div>
+            <div class="h-8 w-px bg-slate-800 hidden sm:block"></div>
+            <button id="btnFullScreen" class="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2 rounded-xl transition text-xs flex items-center justify-center h-8" title="전체화면">
+              <i class="fa-solid fa-expand"></i> <span class="hidden sm:inline ml-1">전체화면</span>
+            </button>
+            <button id="btnOpenSlideManager" class="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2 rounded-xl transition text-xs flex items-center justify-center h-8" title="슬라이드 목록 편집">
+              <i class="fa-solid fa-edit"></i> <span class="hidden sm:inline ml-1">교안 매니저</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- B. 중앙 순수 슬라이드 뷰포트 (16:9 비율 유지 영역, 가려짐 현상 0% 구현) -->
+        <div id="slideViewport" class="relative w-full aspect-[16/9] bg-slate-950 overflow-hidden flex flex-col justify-center items-center">
+          <!-- PPT/PDF 드래그오버 시 나타나는 가이드 불투명 막 -->
+          <div id="dropzoneOverlay" class="absolute inset-0 bg-rose-600/90 backdrop-blur-sm z-30 flex flex-col items-center justify-center pointer-events-none opacity-0 transition-opacity duration-200">
+            <i class="fa-solid fa-file-pdf text-6xl text-white mb-4 animate-bounce"></i>
+            <h3 class="text-2xl font-bold text-white">여기에 PPTX 또는 PDF 파일을 내려놓으세요!</h3>
+            <p class="text-sm text-rose-100 mt-1">즉시 전체 강의 슬라이드를 자동 추출 및 렌더링합니다.</p>
+          </div>
+
+          <!-- 슬라이드 배경 이미지 또는 디자인 요소 (기본 테마값 지정) -->
+          <div id="slideBg" class="absolute inset-0 bg-cover bg-center transition-all duration-300 opacity-20" style="background-image: url('https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80')"></div>
+          
+          <!-- 슬라이드 그라디언트 레이어 (포인터 이벤트 차단으로 하위 컨트롤러 동작 보장) -->
+          <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-slate-950/20 pointer-events-none"></div>
+
+          <!-- 슬라이드 본체 메시지 센터 (배경 이미지 출력 시 텍스트 겹침 가림 처리 기능 연동) -->
+          <div id="textOverlayContainer" class="relative z-10 flex-1 flex flex-col justify-center items-center px-8 text-center select-none transition-all duration-300">
+            <h2 id="slideTitle" class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-4 drop-shadow-md">
+              우송대학교 다국어 강의 지원 시스템
+            </h2>
+            <div id="slideContent" class="text-sm sm:text-base text-slate-300 max-w-xl leading-relaxed whitespace-pre-line drop-shadow">
+              상단의 <strong class="text-rose-400">[교안 파일 선택]</strong> 상자에서 컴퓨터나 USB의 <strong class="text-rose-400">PPTX 파일 또는 PDF 파일</strong>을 선택하세요. 
+              교안 화면을 가리는 버튼들을 치워, 원본 교안 그대로 선명하게 보입니다.
             </div>
           </div>
-          <div class="flex space-x-1">
-            <button
-              onclick="handlePrevMonth()"
-              class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition"
-            >
-              <i class="fa-solid fa-chevron-left text-xs"></i>
-            </button>
-            <button
-              onclick="handleToday()"
-              class="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-lg transition"
-            >
-              오늘
-            </button>
-            <button
-              onclick="handleNextMonth()"
-              class="p-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition"
-            >
-              <i class="fa-solid fa-chevron-right text-xs"></i>
-            </button>
+
+          <!-- 슬라이드 내부 자막 패널 (오버레이 모드일 때 사용됨, 기본 숨김) -->
+          <div id="overlaySubtitlePanel" class="absolute bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm px-6 py-4 border-t border-slate-800/80 z-20 hidden">
+            <div id="overlaySubtitleContent" class="space-y-2">
+              <!-- 동적으로 주입 -->
+            </div>
           </div>
         </div>
 
-        <!-- 주간 요일 헤더 -->
-        <div class="grid grid-cols-7 gap-1 text-center mb-2">
-          <div class="text-xs font-bold py-2 text-rose-400">일</div>
-          <div class="text-xs font-bold py-2 text-slate-400">월</div>
-          <div class="text-xs font-bold py-2 text-slate-400">화</div>
-          <div class="text-xs font-bold py-2 text-slate-400">수</div>
-          <div class="text-xs font-bold py-2 text-slate-400">목</div>
-          <div class="text-xs font-bold py-2 text-slate-400">금</div>
-          <div class="text-xs font-bold py-2 text-blue-400">토</div>
+        <!-- C. 하단 내비게이션 및 슬라이드 테마 제어바 -->
+        <div class="relative z-10 bg-slate-950/80 backdrop-blur-sm border-t border-slate-800/60 p-3 flex justify-between items-center px-4">
+          <div class="flex space-x-1">
+            <button id="btnPrevSlide" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 text-xs transition">
+              <i class="fa-solid fa-chevron-left"></i> 이전
+            </button>
+            <button id="btnNextSlide" class="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 text-xs transition">
+              다음 <i class="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+          
+          <div id="themeSelectors" class="flex items-center space-x-2">
+            <span class="text-xs text-slate-400">슬라이드 테마 변경:</span>
+            <button data-theme="modern" class="w-4 h-4 rounded-full bg-blue-600 border border-white/50" title="모던 블루"></button>
+            <button data-theme="sunset" class="w-4 h-4 rounded-full bg-amber-600 border border-white/50" title="선셋 골드"></button>
+            <button data-theme="woosong" class="w-4 h-4 rounded-full bg-red-600 border border-white/50" title="우송 레드"></button>
+            <button data-theme="forest" class="w-4 h-4 rounded-full bg-emerald-600 border border-white/50" title="포레스트"></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- [독립식 자막 레이아웃 패널 (기본 모드)] -->
+      <div id="standaloneSubtitlePanel" class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col space-y-4">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-closed-captioning text-rose-500 text-lg"></i>
+            <h3 class="font-bold text-sm text-slate-200">실시간 다국어 자막 센터</h3>
+          </div>
+          
+          <!-- 자막 제어 도구 -->
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-1.5 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+              <button id="btnFontDec" class="text-xs text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded-md transition hover:bg-slate-700 font-bold">-A</button>
+              <span class="text-[10px] text-slate-500 uppercase font-bold">크기</span>
+              <button id="btnFontInc" class="text-xs text-slate-400 hover:text-white px-2 py-1 bg-slate-800 rounded-md transition hover:bg-slate-700 font-bold">+A</button>
+            </div>
+
+            <div class="flex items-center space-x-1 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 text-xs">
+              <span class="text-slate-400 mr-1">자막 위치:</span>
+              <button id="btnLayoutSub" class="text-rose-500 font-bold px-1.5 py-0.5 rounded hover:bg-slate-800">하단 분리</button>
+              <button id="btnLayoutOver" class="text-slate-400 px-1.5 py-0.5 rounded hover:bg-slate-800">화면 오버레이</button>
+            </div>
+          </div>
         </div>
 
-        <!-- 캘린더 그리드 -->
-        <div id="calendarGrid" class="grid grid-cols-7 gap-1.5 aspect-[7/6] min-h-[350px]">
-          <!-- 일자 카드들이 동적으로 생성됩니다 -->
+        <!-- 다국어 궤적 영역 (글자 크기는 JS에서 직접 스타일 제어) -->
+        <div id="subtitlesList" class="space-y-4">
+          <!-- 1. 원본 한국어 발화 -->
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start border-b border-slate-850 pb-3">
+            <div class="md:col-span-2 flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+              <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">한국어 (교수)</span>
+            </div>
+            <div id="sub-ko" class="md:col-span-10 text-slate-200 font-medium leading-relaxed subtitle-text">
+              마이크가 켜지면 여기에 교수님의 말씀이 인식되어 표시됩니다...
+            </div>
+          </div>
+
+          <!-- 2. 영어 자막 -->
+          <div id="box-en" class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start border-b border-slate-850 pb-3">
+            <div class="md:col-span-2 flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span class="text-xs font-bold text-blue-400 uppercase tracking-wider">English (EN)</span>
+            </div>
+            <div id="sub-en" class="md:col-span-10 text-blue-100 font-semibold leading-relaxed subtitle-text">
+              The English subtitle will be loaded in real time.
+            </div>
+          </div>
+
+          <!-- 3. 베트남어 자막 -->
+          <div id="box-vi" class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start border-b border-slate-850 pb-3">
+            <div class="md:col-span-2 flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Tiếng Việt (VI)</span>
+            </div>
+            <div id="sub-vi" class="md:col-span-10 text-amber-100 font-semibold leading-relaxed subtitle-text">
+              Phụ đề tiếng Việt sẽ được tạo trong thời gian thực.
+            </div>
+          </div>
+
+          <!-- 4. 중국어 자막 -->
+          <div id="box-zh" class="grid grid-cols-1 md:grid-cols-12 gap-2 items-start pb-1">
+            <div class="md:col-span-2 flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-red-500"></span>
+              <span class="text-xs font-bold text-red-400 uppercase tracking-wider">中文 (ZH)</span>
+            </div>
+            <div id="sub-zh" class="md:col-span-10 text-red-100 font-semibold leading-relaxed subtitle-text">
+              实时生成中文简体字幕。
+            </div>
+          </div>
+        </div>
+
+        <!-- 하단 언어 토글 스위치 랙 -->
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-850 flex flex-wrap gap-4 items-center justify-between">
+          <div class="flex items-center space-x-2 text-xs text-slate-400">
+            <i class="fa-solid fa-sliders text-rose-500"></i>
+            <span>원하지 않는 언어 자막은 끌 수 있습니다:</span>
+          </div>
+          <div id="languageSwitches" class="flex items-center space-x-4">
+            <label class="flex items-center space-x-2 cursor-pointer select-none text-xs text-blue-300">
+              <input type="checkbox" id="chk-en" checked class="rounded border-slate-800 text-indigo-600 focus:ring-0 bg-slate-900 w-4 h-4">
+              <span>English</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer select-none text-xs text-amber-300">
+              <input type="checkbox" id="chk-vi" checked class="rounded border-slate-800 text-indigo-600 focus:ring-0 bg-slate-900 w-4 h-4">
+              <span>Tiếng Việt</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer select-none text-xs text-red-300">
+              <input type="checkbox" id="chk-zh" checked class="rounded border-slate-800 text-indigo-600 focus:ring-0 bg-slate-900 w-4 h-4">
+              <span>中文</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 오른쪽: 강의록 로그 아카이브 및 제어 패널 (col-span-4) -->
+    <div class="lg:col-span-4 flex flex-col space-y-6">
+      
+      <!-- [실시간 음성 인식 작동 컨트롤러] -->
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-md">
+        <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
+          <i class="fa-solid fa-microphone text-rose-500"></i>
+          강의 음성인식 제어
+        </h3>
+
+        <div class="space-y-3">
+          <button
+            id="btnStartSTT"
+            class="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-rose-600/10 transition-all flex items-center justify-center gap-2 duration-150 active:scale-95"
+          >
+            <i class="fa-solid fa-microphone"></i>
+            <span>실시간 마이크 번역 시작</span>
+          </button>
+
+          <button
+            id="btnStopSTT"
+            class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 hidden"
+          >
+            <i class="fa-solid fa-microphone-slash"></i>
+            <span>일시 정지 / 음소거</span>
+          </button>
+
+          <div class="p-3 bg-slate-950 rounded-xl border border-slate-850 text-[11px] text-slate-400 space-y-1.5 leading-relaxed">
+            <p class="font-bold text-slate-300 flex items-center gap-1">
+              <i class="fa-solid fa-lightbulb text-yellow-500"></i> 마이크 작동 팁:
+            </p>
+            <p>1. 구글 크롬 브라우저 사용을 권장합니다.</p>
+            <p>2. 말을 멈추면 문장 완료로 간주하여 AI 번역이 전송됩니다.</p>
+            <p>3. 마이크 권한 요청이 들어오면 반드시 허용해 주세요.</p>
+          </div>
         </div>
       </div>
 
-      <!-- 달력 하단 색상 가이드 -->
-      <div class="mt-4 pt-3 border-t border-slate-700/60 flex flex-wrap justify-between items-center text-xs text-slate-400 gap-2">
-        <span class="flex items-center gap-1">
-          <i class="fa-solid fa-circle-info text-indigo-400"></i>
-          날짜 칸을 누르면 새로운 일정을 즉시 생성할 수 있습니다.
-        </span>
-        <div class="flex items-center gap-3">
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span>업무</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span>개인</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span>중요</span>
+      <!-- [강의 타임라인 로그 기록] -->
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-md flex-1 flex flex-col min-h-[350px]">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-3 mb-3">
+          <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i>
+            강의 아카이브 기록록
+          </h3>
+          <button 
+            id="btnExportLectureNotes"
+            class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border border-slate-700 transition"
+          >
+            <i class="fa-solid fa-download"></i> 파일로 저장
+          </button>
+        </div>
+
+        <!-- 로그 출력 스크롤 뷰 -->
+        <div id="lectureLogContainer" class="flex-1 overflow-y-auto max-h-[380px] space-y-3 pr-1 text-xs">
+          <div class="text-center text-slate-500 py-12">
+            <i class="fa-solid fa-receipt text-3xl mb-2 text-slate-600"></i>
+            <p>기록된 실시간 강의록이 없습니다.</p>
+            <p class="text-[10px] text-slate-600 mt-1">교수님의 강의 내용과 번역본이 정밀 아카이빙됩니다.</p>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   </main>
 
-  <!-- 3. 모달 (일정 등록 팝업) -->
-  <div id="scheduleModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
-    <div class="bg-slate-800 rounded-2xl border border-slate-700 max-w-md w-full overflow-hidden shadow-2xl">
+  <!-- [슬라이드 에디터 및 관리 팝업 모달] -->
+  <div id="slideManagerModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-sm hidden">
+    <div class="bg-slate-900 rounded-2xl border border-slate-800 max-w-2xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
       <!-- 모달 헤더 -->
-      <div class="px-6 py-4 bg-slate-700/40 border-b border-slate-700 flex justify-between items-center">
-        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-plus text-indigo-400"></i>
-          새 일정 추가하기
+      <div class="px-6 py-4 bg-slate-800/50 border-b border-slate-800 flex justify-between items-center">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-edit text-rose-500"></i>
+          강의 슬라이드 및 교안 매니저
         </h3>
-        <button 
-          onclick="closeModal()"
-          class="text-slate-400 hover:text-white transition text-lg"
-        >
-          ✕
-        </button>
+        <button id="btnCloseSlideManager" class="text-slate-400 hover:text-white text-lg">✕</button>
       </div>
 
-      <!-- 모달 본문 폼 -->
-      <form id="scheduleForm" class="p-6 space-y-4" onsubmit="handleAddSchedule(event)">
-        <div id="modalError" class="bg-rose-500/20 border border-rose-500/40 p-3 rounded-xl text-xs text-rose-300 flex items-center gap-2 hidden">
-          <i class="fa-solid fa-circle-exclamation shrink-0"></i>
-          <span id="modalErrorMessage">에러 메시지</span>
-        </div>
-
-        <!-- 제목 -->
-        <div>
-          <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">일정 제목 <span class="text-rose-400">*</span></label>
-          <input
-            type="text"
-            id="newTitle"
-            placeholder="예: 프로젝트 기획 회의"
-            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
-            maxlength="50"
-            required
-          />
-        </div>
-
-        <!-- 날짜 및 시간 -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">날짜 <span class="text-rose-400">*</span></label>
-            <input
-              type="date"
-              id="newDate"
-              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition"
-              required
+      <!-- 모달 몸통 -->
+      <div class="p-6 overflow-y-auto flex-1 space-y-6">
+        
+        <!-- PPTX / PDF 로컬 직접 추출 기동 영역 -->
+        <div class="bg-slate-950 p-5 rounded-xl border border-rose-500/20 space-y-3">
+          <h4 class="text-xs font-bold text-rose-400 uppercase flex items-center gap-1.5">
+            <i class="fa-solid fa-file-pdf text-rose-500"></i>
+            USB / 컴퓨터 보관 강의교안 파일 업로드
+          </h4>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            파워포인트(<strong class="text-rose-300">.pptx</strong>) 또는 PDF(<strong class="text-rose-300">.pdf</strong>) 파일을 선택해 주세요. 내부 데이터와 텍스트를 실시간으로 해체하여 자막과 함께 보여줍니다.
+          </p>
+          <div class="flex flex-col space-y-2">
+            <input 
+              type="file" 
+              id="modalPptxInput" 
+              accept=".pptx, .pdf" 
+              class="block w-full text-sm text-slate-400
+                     file:mr-4 file:py-2.5 file:px-4
+                     file:rounded-xl file:border-0
+                     file:text-xs file:font-black
+                     file:bg-rose-600 file:text-white
+                     hover:file:bg-rose-500
+                     cursor-pointer bg-slate-900 border border-slate-800 rounded-xl p-1"
             />
+            <span id="modalPptxStatus" class="text-[11px] text-slate-500 font-medium">대기 중</span>
           </div>
-          <div>
-            <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">시간</label>
-            <input
-              type="time"
-              id="newTime"
-              value="12:00"
-              class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition"
+        </div>
+
+        <!-- 로컬 강의교안 일괄 이미지 업로드 영역 -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3">
+          <h4 class="text-xs font-bold text-slate-300 uppercase flex items-center gap-1.5">
+            <i class="fa-solid fa-folder-open text-amber-500"></i>
+            개별 이미지 일괄 등록
+          </h4>
+          <p class="text-[10px] text-slate-400 leading-relaxed">
+            파워포인트(PPTX) 교안을 "다른 이름으로 저장" -> "그림 파일" 형식으로 내보낸 다음, 이미지들을 순서대로 선택하여 강의안 슬라이드에 자동 배치시킵니다.
+          </p>
+          <div class="flex items-center gap-3">
+            <input 
+              type="file" 
+              id="batchSlideUploadInput" 
+              accept="image/*" 
+              multiple 
+              class="block w-full text-sm text-slate-400
+                     file:mr-4 file:py-2.5 file:px-4
+                     file:rounded-xl file:border-0
+                     file:text-xs file:font-black
+                     file:bg-amber-600 file:text-white
+                     hover:file:bg-amber-500
+                     cursor-pointer bg-slate-900 border border-slate-800 rounded-xl p-1"
             />
+            <span id="batchUploadStatus" class="text-[11px] text-slate-500 font-medium">로컬 교안 미선택</span>
           </div>
         </div>
 
-        <!-- 카테고리 선택 -->
-        <div>
-          <label class="block text-xs font-bold text-slate-300 mb-2 uppercase">카테고리</label>
-          <div id="categoryButtonContainer" class="grid grid-cols-3 sm:grid-cols-5 gap-2">
-            <!-- JS를 통해 선택 버튼들이 동적으로 추가됩니다 -->
+        <!-- 신규 슬라이드 개별 등록 폼 -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+          <h4 class="text-xs font-bold text-slate-300 uppercase">개별 슬라이드 수동 추가</h4>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">슬라이드 제목</label>
+              <input type="text" id="newSlideTitleInput" placeholder="예: 4장. 캡슐화 디자인 기법" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500">
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">로컬 배경 이미지 파일 선택</label>
+              <div class="flex flex-col space-y-1 mt-1">
+                <input 
+                  type="file" 
+                  id="newSlideImgFileInput" 
+                  accept="image/*" 
+                  class="block w-full text-[11px] text-slate-400
+                         file:mr-3 file:py-1.5 file:px-3
+                         file:rounded-lg file:border-0
+                         file:text-[10px] file:font-black
+                         file:bg-slate-800 file:text-slate-200
+                         hover:file:bg-slate-700
+                         cursor-pointer bg-slate-900 border border-slate-800 rounded-lg p-0.5"
+                />
+                <span id="individualFileStatus" class="text-[10px] text-slate-500 truncate max-w-[200px]">선택된 파일 없음</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-1">
+            <label class="block text-[10px] text-slate-400">웹 이미지 주소 (선택 파일이 없을 시 대체용)</label>
+            <input type="text" id="newSlideImgInput" placeholder="https://..." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500">
+          </div>
+
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">슬라이드 상세 내용 (강의 핵심 요약)</label>
+            <textarea id="newSlideContentInput" placeholder="슬라이드 본문 텍스트를 입력해 주세요." class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 h-16 resize-none"></textarea>
+          </div>
+
+          <div class="flex justify-end">
+            <button id="btnAddNewSlide" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow-md">
+              수동 낱장 등록
+            </button>
           </div>
         </div>
 
-        <!-- 메모/설명 -->
-        <div>
-          <label class="block text-xs font-bold text-slate-300 mb-1.5 uppercase">상세 내용 (메모)</label>
-          <textarea
-            id="newMemo"
-            placeholder="추가 세부 사항을 작성해 주세요..."
-            class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition h-20 resize-none"
-            maxlength="150"
-          ></textarea>
+        <!-- 슬라이드 관리 테이블 -->
+        <div class="space-y-3">
+          <h4 class="text-xs font-bold text-slate-300 uppercase">현재 구성된 슬라이드 목록</h4>
+          <div class="overflow-hidden border border-slate-800 rounded-xl">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-950 border-b border-slate-800 text-slate-400">
+                  <th class="p-3 w-12 text-center">순서</th>
+                  <th class="p-3">제목 및 내용</th>
+                  <th class="p-3 w-16 text-center">삭제</th>
+                </tr>
+              </thead>
+              <tbody id="slideManagerListBody">
+                <!-- 동적으로 리스트 작성 -->
+              </tbody>
+            </table>
+          </div>
         </div>
+      </div>
 
-        <!-- 하단 제어 -->
-        <div class="flex space-x-2 pt-2">
-          <button
-            type="button"
-            onclick="closeModal()"
-            class="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl text-sm font-semibold transition"
-          >
-            취소
-          </button>
-          <button
-            type="submit"
-            class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition shadow-lg shadow-indigo-600/10"
-          >
-            등록 완료
-          </button>
-        </div>
-      </form>
+      <!-- 모달 푸터 -->
+      <div class="px-6 py-4 bg-slate-800/20 border-t border-slate-800 flex justify-end">
+        <button id="btnCloseSlideManagerFooter" class="bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-bold px-4 py-2 rounded-xl transition">
+          닫기
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- Custom Alert Toast (alert 대체용 브라우저 친화적 알림창) -->
+  <!-- Custom Alert Toast 시스템 -->
   <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-800 text-slate-100 border border-slate-700 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
     <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
-    <span id="toastMessage" class="text-sm font-medium">일정이 정상적으로 처리되었습니다.</span>
+    <span id="toastMessage" class="text-sm font-medium">작업이 처리되었습니다.</span>
   </div>
 
-  <!-- Firebase 및 애플리케이션 핵심 스크립트 모듈 -->
+  <!-- 3. 핵심 자바스크립트 엔진 모듈 -->
   <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-    import { 
-      getAuth, 
-      signInWithCustomToken, 
-      signInAnonymously, 
-      onAuthStateChanged 
-    } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-    import { 
-      getFirestore, 
-      collection, 
-      doc, 
-      addDoc, 
-      deleteDoc, 
-      onSnapshot 
-    } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+    // PDF.js 워커 경로 수동 명시
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-    // ==========================================
-    // Firebase 설정 (시스템 환경 변수 우선 연동)
-    // ==========================================
-    const firebaseConfig = typeof __firebase_config !== 'undefined' 
-      ? JSON.parse(__firebase_config) 
-      : {
-          apiKey: "",
-          authDomain: "default-app.firebaseapp.com",
-          projectId: "default-app",
-          storageBucket: "default-app.appspot.com",
-          messagingSenderId: "123456789",
-          appId: "1:123456789:web:123456"
-        };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'smart-planner-app';
-
-    // 글로벌 상태 객체
+    // =========================================================================
+    // 글로벌 데이터 상태 관리
+    // =========================================================================
     const state = {
-      user: null,
-      schedules: [],
-      dbStatus: 'connecting',
-      currentDate: new Date(),
-      selectedDate: new Date(),
-      filterCategory: 'all',
-      selectedModalCategory: 'work'
+      // 기본 사전 세팅된 우송대학교 맞춤형 강의 샘플 데이터
+      slides: [
+        {
+          title: "컴퓨터학 개론 - 객체 지향 원리의 이해",
+          content: "1. 캡슐화 (Encapsulation): 데이터를 보호하고 정보은닉 실현\n2. 상속 (Inheritance): 부모 클래스의 유산을 재사용하여 유지보수성 확보\n3. 다형성 (Polymorphism): 하나의 인터페이스로 다채로운 구현체 실행",
+          bg: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
+          theme: "modern"
+        },
+        {
+          title: "소프트웨어 아키텍처 및 디자인 패턴",
+          content: "1. 단일 책임 원칙 (SRP): 하나의 객체는 오직 하나의 역할만 담당\n2. 개방 폐쇄 원칙 (OCP): 확장에는 열려있고 수정에는 닫혀있어야 함\n3. 의존 역전 원칙 (DIP): 상위 수준 모듈은 하위 수준 모듈에 의존 금지",
+          bg: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
+          theme: "sunset"
+        },
+        {
+          title: "클라우드 네이티브와 마이크로서비스",
+          content: "1. 모놀리식 시스템의 한계 탈피 및 확장 분리\n2. 컨테이너 오케스트레이션(Kubernetes)을 통한 automatic 배포 체계 확보\n3. 서킷 브레이커 패턴을 적용한 장애 확산 차단 및 복구탄력성 확보",
+          bg: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80",
+          theme: "woosong"
+        }
+      ],
+      currentSlideIdx: 0,
+      activeTheme: 'modern',
+      subtitleLayout: 'standalone', // standalone(하단분리) 또는 overlay(슬라이드오버레이)
+      fontSize: 14, // 기본 자막 서체 크기
+      isRecognizing: false,
+      lectureLog: [], // { time: '10:14', ko: '', en: '', vi: '', zh: '' }
+      
+      // 개별 트랙 ON/OFF 관리
+      tracks: {
+        en: true,
+        vi: true,
+        zh: true
+      }
     };
 
-    // 카테고리 고정 정의
-    const CATEGORIES = {
-      work: { label: '업무', color: 'bg-blue-500', text: 'text-blue-500', border: 'border-blue-500', light: 'bg-blue-500/10' },
-      personal: { label: '개인', color: 'bg-emerald-500', text: 'text-emerald-500', border: 'border-emerald-500', light: 'bg-emerald-500/10' },
-      important: { label: '중요', color: 'bg-rose-500', text: 'text-rose-500', border: 'border-rose-500', light: 'bg-rose-500/10' },
-      family: { label: '가족/모임', color: 'bg-amber-500', text: 'text-amber-500', border: 'border-amber-500', light: 'bg-amber-500/10' },
-      etc: { label: '기타', color: 'bg-purple-500', text: 'text-purple-500', border: 'border-purple-500', light: 'bg-purple-500/10' },
+    // 테마별 그라디언트 배경 설정 매핑
+    const THEMES = {
+      modern: {
+        class: "from-blue-900/60 to-slate-900/80 border-blue-800/40",
+        color: "bg-blue-600"
+      },
+      sunset: {
+        class: "from-amber-900/60 to-slate-900/80 border-amber-800/40",
+        color: "bg-amber-600"
+      },
+      woosong: {
+        class: "from-red-950/80 to-slate-900/90 border-red-900/40",
+        color: "bg-red-600"
+      },
+      forest: {
+        class: "from-emerald-950/70 to-slate-900/80 border-emerald-800/40",
+        color: "bg-emerald-600"
+      }
     };
 
-    // Toast 팝업 도구 함수
+    // =========================================================================
+    // 음성인식 엔진 설정 (Web Speech API)
+    // =========================================================================
+    let recognition = null;
+    let finalTranscript = '';
+
+    // 토스트 알림창 기동 유틸
     function showToast(message, type = 'success') {
       const toast = document.getElementById('toast');
       const toastIcon = document.getElementById('toastIcon');
@@ -348,552 +576,1006 @@
 
       toastMessage.textContent = message;
       if (type === 'error') {
-        toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-500';
+        toastIcon.className = 'fa-solid fa-triangle-exclamation text-rose-500';
       } else {
         toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
       }
 
       toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-      
       setTimeout(() => {
         toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
       }, 3000);
     }
 
-    // DB 상태 UI 업데이트
-    function updateDbStatusUI() {
-      const badge = document.getElementById('dbStatusBadge');
-      if (state.dbStatus === 'connecting') {
-        badge.innerHTML = `
-          <span class="relative flex h-2.5 w-2.5">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-          </span>
-          <span class="text-amber-400">연결 중...</span>
-        `;
-      } else if (state.dbStatus === 'synced') {
-        badge.innerHTML = `
-          <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-          <span class="text-emerald-400 flex items-center gap-1">
-            <i class="fa-solid fa-wifi text-[10px]"></i> 실시간 동기화 완료
-          </span>
-        `;
-      } else {
-        badge.innerHTML = `
-          <span class="h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-          <span class="text-rose-400 flex items-center gap-1">
-            <i class="fa-solid fa-cloud-bolt text-[10px]"></i> 오프라인 모드
-          </span>
-        `;
+    // 슬라이드 화면 갱신 (수정보완: 배경이 완전히 가로 세로 꽉 차도록 늘리는 bg-[length:100%_100%]로 수정)
+    function updateSlideDisplay() {
+      if (state.slides.length === 0) {
+        document.getElementById('slideTitle').textContent = "등록된 강의안이 없습니다";
+        document.getElementById('slideContent').textContent = "우측 상단의 [교안 매니저]를 통해 새로운 슬라이드를 자유롭게 등록하세요.";
+        document.getElementById('currentSlideIndex').textContent = "0";
+        document.getElementById('totalSlidesCount').textContent = "0";
+        return;
       }
-    }
 
-    // 날짜 포맷 변환 유틸리티
-    function getFormatDateStr(date) {
-      const yyyy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, '0');
-      const dd = String(date.getDate()).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
+      const activeSlide = state.slides[state.currentSlideIdx];
+      const textOverlay = document.getElementById('textOverlayContainer');
+      const slideBg = document.getElementById('slideBg');
 
-    // 달력 날짜 목록 계산
-    function getDaysInMonth(date) {
-      const year = date.getFullYear();
-      const month = date.getMonth();
-      const firstDay = new Date(year, month, 1).getDay();
-      const totalDays = new Date(year, month + 1, 0).getDate();
-      const days = [];
+      // 제목 및 바디 세팅
+      document.getElementById('slideTitle').textContent = activeSlide.title;
+      document.getElementById('slideContent').textContent = activeSlide.content;
       
-      const prevMonthTotalDays = new Date(year, month, 0).getDate();
-      for (let i = firstDay - 1; i >= 0; i--) {
-        days.push({
-          date: new Date(year, month - 1, prevMonthTotalDays - i),
-          isCurrentMonth: false
-        });
+      // 슬라이드 인덱스 표기
+      document.getElementById('currentSlideIndex').textContent = state.currentSlideIdx + 1;
+      document.getElementById('totalSlidesCount').textContent = state.slides.length;
+      
+      // [수정보완 핵심] 파워포인트/PDF 슬라이드 뷰 모드
+      if (activeSlide.bg) {
+        // 백그라운드 이미지를 투명하지 않게 원본 100% 렌더링하고, 비율 유지를 하되 공백 없이 늘리도록 100% 100% 지정
+        slideBg.style.backgroundImage = `url('${activeSlide.bg}')`;
+        slideBg.style.opacity = '1.0'; 
+        // 기존 bg-contain 대신 가로세로를 가득 채우는 bg-[length:100%_100%]로 대체하여 좌우 공백 전면 제거
+        slideBg.className = "absolute inset-0 bg-[length:100%_100%] bg-no-repeat bg-center transition-all duration-300";
+        
+        // 원본 PPTX/PDF 이미지를 그대로 보여주기 위해 불필요한 중앙 텍스트 오버레이 레이어 삭제(숨김)
+        if (textOverlay) {
+          textOverlay.classList.add('hidden');
+        }
+      } else {
+        // 교안 로드 전 대기 화면일 때는 중앙 웰컴 텍스트 표시
+        slideBg.style.backgroundImage = 'none';
+        slideBg.className = "absolute inset-0 bg-cover bg-center transition-all duration-300 opacity-20";
+        if (textOverlay) {
+          textOverlay.classList.remove('hidden');
+        }
       }
-      for (let i = 1; i <= totalDays; i++) {
-        days.push({
-          date: new Date(year, month, i),
-          isCurrentMonth: true
-        });
+
+      // 강제 슬라이드 테마 지정
+      if (activeSlide.theme && THEMES[activeSlide.theme]) {
+        changeSlideTheme(activeSlide.theme);
       }
-      const remaining = 42 - days.length;
-      for (let i = 1; i <= remaining; i++) {
-        days.push({
-          date: new Date(year, month + 1, i),
-          isCurrentMonth: false
-        });
-      }
-      return days;
     }
 
-    // 특정 날짜 & 필터에 부합하는 일정 리스트 가져오기
-    function getSchedulesForDate(date) {
-      const dateStr = getFormatDateStr(date);
-      return state.schedules.filter(s => {
-        const matchDate = s.date === dateStr;
-        const matchCategory = state.filterCategory === 'all' || s.category === state.filterCategory;
-        return matchDate && matchCategory;
+    function goToPrevSlide() {
+      if (state.slides.length === 0) return;
+      state.currentSlideIdx = (state.currentSlideIdx - 1 + state.slides.length) % state.slides.length;
+      updateSlideDisplay();
+    }
+
+    // 다음 슬라이드로 이동
+    function goToNextSlide() {
+      if (state.slides.length === 0) return;
+      state.currentSlideIdx = (state.currentSlideIdx + 1) % state.slides.length;
+      updateSlideDisplay();
+    }
+
+    // 슬라이드 쇼 스타일 테마 교체
+    function changeSlideTheme(themeKey) {
+      if (!THEMES[themeKey]) return;
+      state.activeTheme = themeKey;
+      const slideContainer = document.getElementById('slideContainer');
+      
+      // 기존 테마 클래스 제거
+      Object.values(THEMES).forEach(t => {
+        const classes = t.class.split(' ');
+        classes.forEach(c => slideContainer.classList.remove(c));
+      });
+
+      // 신규 테마 클래스 추가
+      const newClasses = THEMES[themeKey].class.split(' ');
+      newClasses.forEach(c => slideContainer.classList.add(c));
+    }
+
+    // =========================================================================
+    // 파일 이벤트 정적 연동 (NATIVE INPUT 직접 제어로 샌드박스 완벽 우회)
+    // =========================================================================
+    function initEventBindings() {
+      const mainPptxInput = document.getElementById('mainPptxInput');
+      const modalPptxInput = document.getElementById('modalPptxInput');
+      const batchSlideUploadInput = document.getElementById('batchSlideUploadInput');
+      const newSlideImgFileInput = document.getElementById('newSlideImgFileInput');
+
+      // 1. 메인 헤더 파일 변경 핸들러
+      if (mainPptxInput) {
+        mainPptxInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleLectureFile(e.target.files[0]);
+          }
+        });
+      }
+
+      // 2. 모달 내 PPTX 변경 핸들러
+      if (modalPptxInput) {
+        modalPptxInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleLectureFile(e.target.files[0]);
+          }
+        });
+      }
+
+      // 3. 일괄 이미지 업로드 변경 핸들러
+      if (batchSlideUploadInput) {
+        batchSlideUploadInput.addEventListener('change', function(e) {
+          const files = Array.from(e.target.files);
+          if (files.length === 0) return;
+
+          const statusLabel = document.getElementById('batchUploadStatus');
+          if (statusLabel) statusLabel.textContent = `${files.length}개 파일 로드 준비됨`;
+
+          // 자연 오름차순 정렬
+          files.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true, sensitivity: 'base'}));
+
+          files.forEach((file, index) => {
+            const objectUrl = URL.createObjectURL(file);
+            state.slides.push({
+              title: file.name.substring(0, file.name.lastIndexOf('.')) || file.name,
+              content: `${index + 1}번째 슬라이드 강의 교안입니다. 아래 번역 자막과 연동됩니다.`,
+              bg: objectUrl,
+              theme: state.activeTheme
+            });
+          });
+
+          renderSlideManagerList();
+          updateSlideDisplay();
+          showToast(`${files.length}개의 슬라이드 강의 교안이 새로 추가되었습니다.`);
+          
+          this.value = '';
+          if (statusLabel) statusLabel.textContent = '일괄 등록 완료';
+        });
+      }
+
+      // 4. 수동 단일 이미지 변경 핸들러 (개별 이미지 등록 파일 찾기 연동)
+      if (newSlideImgFileInput) {
+        newSlideImgFileInput.addEventListener('change', function(e) {
+          const statusSpan = document.getElementById('individualFileStatus');
+          if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            if (statusSpan) {
+              statusSpan.textContent = file.name;
+              statusSpan.className = "text-[10px] text-emerald-400 font-bold truncate max-w-[120px]";
+            }
+          } else {
+            if (statusSpan) {
+              statusSpan.textContent = "선택된 파일 없음";
+              statusSpan.className = "text-[10px] text-slate-500 truncate max-w-[120px]";
+            }
+          }
+        });
+      }
+
+      // 5. 메인 드롭존(Dropzone) 바인딩
+      const slideContainer = document.getElementById('slideContainer');
+      if (slideContainer) {
+        slideContainer.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          const overlay = document.getElementById('dropzoneOverlay');
+          if (overlay) {
+            overlay.classList.remove('opacity-0');
+            overlay.classList.add('opacity-100');
+          }
+        });
+
+        slideContainer.addEventListener('dragleave', (e) => {
+          e.preventDefault();
+          const overlay = document.getElementById('dropzoneOverlay');
+          if (overlay) {
+            overlay.classList.remove('opacity-100');
+            overlay.classList.add('opacity-0');
+          }
+        });
+
+        slideContainer.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const overlay = document.getElementById('dropzoneOverlay');
+          if (overlay) {
+            overlay.classList.remove('opacity-100');
+            overlay.classList.add('opacity-0');
+          }
+
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleLectureFile(e.dataTransfer.files[0]);
+          }
+        });
+      }
+
+      // 6. UI 제어부 정적 매핑
+      const btnFullScreen = document.getElementById('btnFullScreen');
+      if (btnFullScreen) {
+        btnFullScreen.addEventListener('click', toggleFullScreen);
+      }
+
+      const btnOpenSlideManager = document.getElementById('btnOpenSlideManager');
+      if (btnOpenSlideManager) {
+        btnOpenSlideManager.addEventListener('click', openSlideManager);
+      }
+
+      const btnCloseSlideManager = document.getElementById('btnCloseSlideManager');
+      if (btnCloseSlideManager) {
+        btnCloseSlideManager.addEventListener('click', closeSlideManager);
+      }
+
+      const btnCloseSlideManagerFooter = document.getElementById('btnCloseSlideManagerFooter');
+      if (btnCloseSlideManagerFooter) {
+        btnCloseSlideManagerFooter.addEventListener('click', closeSlideManager);
+      }
+
+      const btnPrevSlide = document.getElementById('btnPrevSlide');
+      if (btnPrevSlide) {
+        btnPrevSlide.addEventListener('click', goToPrevSlide);
+      }
+
+      const btnNextSlide = document.getElementById('btnNextSlide');
+      if (btnNextSlide) {
+        btnNextSlide.addEventListener('click', goToNextSlide);
+      }
+
+      // 7. 슬라이드 테마 변경 버튼들에 정적 바인딩 부여
+      const themeButtons = document.querySelectorAll('#themeSelectors button');
+      themeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const themeKey = btn.getAttribute('data-theme');
+          changeSlideTheme(themeKey);
+          showToast(`슬라이드 디자인 테마가 [${themeKey.toUpperCase()}]로 조정되었습니다.`);
+        });
+      });
+
+      // 8. 자막 제어 버튼들 (크기, 레이아웃) 연동
+      const btnFontDec = document.getElementById('btnFontDec');
+      if (btnFontDec) {
+        btnFontDec.addEventListener('click', () => adjustFontSize(-2));
+      }
+
+      const btnFontInc = document.getElementById('btnFontInc');
+      if (btnFontInc) {
+        btnFontInc.addEventListener('click', () => adjustFontSize(2));
+      }
+
+      const btnLayoutSub = document.getElementById('btnLayoutSub');
+      if (btnLayoutSub) {
+        btnLayoutSub.addEventListener('click', () => setSubtitleLayout('standalone'));
+      }
+
+      const btnLayoutOver = document.getElementById('btnLayoutOver');
+      if (btnLayoutOver) {
+        btnLayoutOver.addEventListener('click', () => setSubtitleLayout('overlay'));
+      }
+
+      // 9. 언어 자막 On/Off 체크박스 바인딩
+      const checkboxes = document.querySelectorAll('#languageSwitches input[type="checkbox"]');
+      checkboxes.forEach(chk => {
+        chk.addEventListener('change', () => {
+          const langKey = chk.id.replace('chk-', '');
+          state.tracks[langKey] = chk.checked;
+          const box = document.getElementById(`box-${langKey}`);
+          if (chk.checked) {
+            box.classList.remove('hidden');
+          } else {
+            box.classList.add('hidden');
+          }
+          syncSubtitlesToScreen();
+          showToast(`${langKey.toUpperCase()} 자막 채널 필터가 변경되었습니다.`);
+        });
+      });
+
+      // 10. 마이크 번역 시작/중지 바인딩
+      const btnStartSTT = document.getElementById('btnStartSTT');
+      if (btnStartSTT) {
+        btnStartSTT.addEventListener('click', startSpeechRecognition);
+      }
+
+      const btnStopSTT = document.getElementById('btnStopSTT');
+      if (btnStopSTT) {
+        btnStopSTT.addEventListener('click', stopSpeechRecognition);
+      }
+
+      // 11. 강의록 저장 및 다운로드 버튼 바인딩
+      const btnExportLectureNotes = document.getElementById('btnExportLectureNotes');
+      if (btnExportLectureNotes) {
+        btnExportLectureNotes.addEventListener('click', exportLectureNotes);
+      }
+
+      // 12. 수동 슬라이드 신규 추가 등록 바인딩
+      const btnAddNewSlide = document.getElementById('btnAddNewSlide');
+      if (btnAddNewSlide) {
+        btnAddNewSlide.addEventListener('click', addNewSlide);
+      }
+    }
+
+    // 파일 형식(PPTX / PDF)에 맞게 통합 분류 및 구동하는 핸들러
+    function handleLectureFile(file) {
+      if (!file) return;
+      const fileName = file.name.toLowerCase();
+      if (fileName.endsWith('.pptx')) {
+        parsePowerpointFile(file);
+      } else if (fileName.endsWith('.pdf')) {
+        parsePdfFile(file);
+      } else {
+        showToast("지원되지 않는 파일 형식입니다. PPTX 또는 PDF 파일을 업로드해 주세요.", "error");
+      }
+    }
+
+    // =========================================================================
+    // [PDF 다이렉트 분석 및 인브라우저 캔버스 렌더링 엔진]
+    // =========================================================================
+    async function parsePdfFile(file) {
+      document.getElementById('loadingScreen').classList.remove('hidden');
+      const statusLabel = document.getElementById('modalPptxStatus');
+      if (statusLabel) statusLabel.textContent = "PDF 분석 시작...";
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        
+        const newSlides = [];
+        const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+
+        // 임시 렌더링용 숨겨진 캔버스 생성
+        const tempCanvas = document.createElement('canvas');
+        const tempContext = tempCanvas.getContext('2d');
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          
+          // 강의실 프로젝터용 16:9 비율 유지 및 선명한 화질을 위한 2.0 배율 뷰포트 스케일링 설정
+          const viewport = page.getViewport({ scale: 2.0 });
+          tempCanvas.width = viewport.width;
+          tempCanvas.height = viewport.height;
+
+          // 캔버스에 PDF 문서 페이지 직접 그리기
+          await page.render({
+            canvasContext: tempContext,
+            viewport: viewport
+          }).promise;
+
+          // 고해상도 이미지 압축 데이터 추출 (Base64 JPEG)
+          const slideImage = tempCanvas.toDataURL('image/jpeg', 0.85);
+
+          // 텍스트 계층 분석을 통한 본문 내용 추출
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(' ').trim();
+          const cleanText = pageText.length > 300 ? pageText.substring(0, 300) + '...' : pageText;
+
+          newSlides.push({
+            title: `${baseName} - Page ${pageNum}`,
+            content: cleanText || `${pageNum}페이지 이미지 강의 교안입니다. 실시간 번역 자막이 하단에 흐릅니다.`,
+            bg: slideImage,
+            theme: state.activeTheme
+          });
+        }
+
+        // 글로벌 슬라이드에 파싱된 PDF 데이터 주입
+        state.slides = newSlides;
+        state.currentSlideIdx = 0;
+        
+        updateSlideDisplay();
+        renderSlideManagerList();
+
+        if (statusLabel) statusLabel.textContent = "PDF 렌더 완료!";
+        showToast(`성공: PDF 파일에서 총 ${newSlides.length}개의 강의 슬라이드를 성공적으로 변환했습니다.`);
+        closeSlideManager();
+      } catch (err) {
+        console.error("PDF 파싱 구동 실패:", err);
+        showToast("오류: PDF 파일을 읽어오지 못했습니다. 파일 무결성을 점검해 주세요.", "error");
+        if (statusLabel) statusLabel.textContent = "에러 발생";
+      } finally {
+        document.getElementById('loadingScreen').classList.add('hidden');
+      }
+    }
+
+    // PPTX 파일의 ZIP 파일 압축 해제 및 실시간 XML 파싱 기술 구현
+    async function parsePowerpointFile(file) {
+      document.getElementById('loadingScreen').classList.remove('hidden');
+      const statusLabel = document.getElementById('modalPptxStatus');
+      if (statusLabel) statusLabel.textContent = "파싱 시작...";
+
+      try {
+        const zip = await JSZip.loadAsync(file);
+        
+        // 1. 슬라이드 XML 목록 식별 및 수치 정렬
+        const slideFiles = Object.keys(zip.files).filter(name => name.startsWith('ppt/slides/slide') && name.endsWith('.xml'));
+        if (slideFiles.length === 0) {
+          throw new Error("유효한 PPTX 내부 슬라이드 XML 구조를 검색할 수 없습니다.");
+        }
+
+        slideFiles.sort((a, b) => {
+          const numA = parseInt(a.match(/\d+/)[0]);
+          const numB = parseInt(b.match(/\d+/)[0]);
+          return numA - numB;
+        });
+
+        const newSlides = [];
+        const parser = new DOMParser();
+
+        // 2. 각 슬라이드를 비동기 루프로 순회 분석
+        for (let i = 0; i < slideFiles.length; i++) {
+          const slideFile = slideFiles[i];
+          const slideNum = slideFile.match(/\d+/)[0];
+          
+          const xmlText = await zip.file(slideFile).async('text');
+          const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+
+          // XML 네임스페이스 비종속 텍스트 추출 가드 기법 탑재 (getElementsByTagNameNS 사용)
+          const paragraphs = [];
+          const pNodes = xmlDoc.getElementsByTagNameNS('*', 'p');
+          
+          for (let j = 0; j < pNodes.length; j++) {
+            const tNodes = pNodes[j].getElementsByTagNameNS('*', 't');
+            let paraText = "";
+            for (let k = 0; k < tNodes.length; k++) {
+              paraText += tNodes[k].textContent;
+            }
+            if (paraText.trim()) {
+              paragraphs.push(paraText.trim());
+            }
+          }
+
+          // 제목과 콘텐츠 추출 분배 연산
+          let slideTitle = paragraphs[0] || `제 ${slideNum} 장`;
+          let slideContent = paragraphs.slice(1).join('\n') || "(텍스트 내용 없음)";
+          
+          // 만약 텍스트가 매우 길다면 첫 단락을 아름답게 조율
+          if (slideTitle.length > 40) {
+            slideContent = slideTitle + "\n" + slideContent;
+            slideTitle = `슬라이드 ${slideNum}`;
+          }
+
+          // 3. 슬라이드 관계(Relationships) XML 분석을 통한 원본 일러스트 이미지 직접 매핑
+          let slideBgUrl = null;
+          const relsFile = `ppt/slides/_rels/slide${slideNum}.xml.rels`;
+          
+          if (zip.file(relsFile)) {
+            const relsText = await zip.file(relsFile).async('text');
+            const relsDoc = parser.parseFromString(relsText, 'application/xml');
+            const relationships = relsDoc.getElementsByTagNameNS('*', 'Relationship');
+
+            const blips = xmlDoc.getElementsByTagNameNS('*', 'blip');
+            if (blips.length > 0) {
+              let embedId = null;
+              // embed 어트리뷰트 탐색
+              const blip = blips[0];
+              for (let attr of blip.attributes) {
+                if (attr.localName === 'embed') {
+                  embedId = attr.value;
+                  break;
+                }
+              }
+
+              if (embedId) {
+                let targetPath = null;
+                for (let r = 0; r < relationships.length; r++) {
+                  if (relationships[r].getAttribute('Id') === embedId) {
+                    targetPath = relationships[r].getAttribute('Target');
+                    break;
+                  }
+                }
+
+                if (targetPath) {
+                  // 관계 디렉토리 상대 경로 표준 규격으로 복합 정제
+                  const normalizedPath = targetPath.replace(/^\.\.\//, 'ppt/');
+                  const imgFile = zip.file(normalizedPath);
+                  if (imgFile) {
+                    const blob = await imgFile.async('blob');
+                    slideBgUrl = URL.createObjectURL(blob);
+                  }
+                }
+              }
+            }
+          }
+
+          newSlides.push({
+            title: slideTitle,
+            content: slideContent,
+            bg: slideBgUrl,
+            theme: state.activeTheme
+          });
+        }
+
+        // 4. 로드 완료 후 글로벌 슬라이드 메모리에 주입 적용
+        state.slides = newSlides;
+        state.currentSlideIdx = 0;
+        
+        updateSlideDisplay();
+        renderSlideManagerList();
+        
+        if (statusLabel) statusLabel.textContent = "PPTX 파싱 완료!";
+        showToast(`성공: PPTX 파일에서 총 ${newSlides.length}개의 슬라이드 교안을 직접 완벽히 분석/추출했습니다.`);
+        
+        // 에디터 모달 자동 닫기
+        closeSlideManager();
+      } catch (err) {
+        console.error("PPTX 추출 파서 구동 오류:", err);
+        showToast("오류: PPTX 파일 내부 데이터가 손상되었거나 브라우저에서 읽지 못했습니다.", "error");
+        if (statusLabel) statusLabel.textContent = "에러 발생";
+      } finally {
+        document.getElementById('loadingScreen').classList.add('hidden');
+      }
+    }
+
+    // 슬라이드 매니저 에디터 모달 제어
+    function openSlideManager() {
+      document.getElementById('slideManagerModal').classList.remove('hidden');
+      renderSlideManagerList();
+    }
+
+    // 모달 닫기
+    function closeSlideManager() {
+      document.getElementById('slideManagerModal').classList.add('hidden');
+    }
+
+    // 슬라이드 목록 렌더링
+    function renderSlideManagerList() {
+      const tbody = document.getElementById('slideManagerListBody');
+      tbody.innerHTML = '';
+
+      if (state.slides.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="3" class="p-4 text-center text-slate-500">
+              현재 구성된 슬라이드가 없습니다. 신규 강의안을 작성해 보세요!
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      state.slides.forEach((slide, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = "border-b border-slate-800 hover:bg-slate-800/40 text-slate-300";
+        tr.innerHTML = `
+          <td class="p-3 font-bold text-center">${idx + 1}</td>
+          <td class="p-3">
+            <div class="font-bold text-white text-sm">${slide.title}</div>
+            <div class="text-slate-400 text-xs truncate max-w-md">${slide.content}</div>
+          </td>
+          <td class="p-3 text-center">
+            <button class="text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 p-1.5 rounded transition delete-slide-btn" data-index="${idx}">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // 삭제 액션 바인딩
+      tbody.querySelectorAll('.delete-slide-btn').forEach(btn => {
+        btn.onclick = (e) => {
+          e.preventDefault();
+          const idx = parseInt(btn.getAttribute('data-index'));
+          state.slides.splice(idx, 1);
+          if (state.currentSlideIdx >= state.slides.length) {
+            state.currentSlideIdx = Math.max(0, state.slides.length - 1);
+          }
+          renderSlideManagerList();
+          updateSlideDisplay();
+          showToast("슬라이드가 안전하게 제거되었습니다.");
+        };
       });
     }
 
-    // 카테고리 필터 UI 구성
-    function renderCategoryFilters() {
-      const container = document.getElementById('categoryFilters');
-      let html = `
-        <button
-          id="btn-filter-all"
-          class="flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all text-left w-full sm:w-auto lg:w-full ${
-            state.filterCategory === 'all'
-              ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/50 font-semibold'
-              : 'bg-slate-700/40 text-slate-300 border border-transparent hover:bg-slate-700'
-          }"
-        >
-          <span class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-slate-300"></span>
-            전체 일정 보기
-          </span>
-          <span class="text-xs bg-slate-800 px-2 py-0.5 rounded-md text-slate-400">
-            ${state.schedules.length}
-          </span>
-        </button>
+    function addNewSlide() {
+      const title = document.getElementById('newSlideTitleInput').value.trim();
+      const content = document.getElementById('newSlideContentInput').value.trim();
+      const webBg = document.getElementById('newSlideImgInput').value.trim();
+      const fileInput = document.getElementById('newSlideImgFileInput');
+
+      if (!title || !content) {
+        showToast("슬라이드 제목과 상세 내용을 채워주세요.", "error");
+        return;
+      }
+
+      let bg = webBg || 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80';
+
+      // 로컬 파일 업로드 적용
+      if (fileInput && fileInput.files && fileInput.files[0]) {
+        bg = URL.createObjectURL(fileInput.files[0]);
+      }
+
+      state.slides.push({
+        title,
+        content,
+        bg,
+        theme: state.activeTheme
+      });
+
+      // 등록 양식 리셋
+      document.getElementById('newSlideTitleInput').value = '';
+      document.getElementById('newSlideContentInput').value = '';
+      document.getElementById('newSlideImgInput').value = '';
+      if (fileInput) fileInput.value = '';
+      
+      const statusSpan = document.getElementById('individualFileStatus');
+      if (statusSpan) {
+        statusSpan.textContent = "선택된 파일 없음";
+        statusSpan.className = "text-[10px] text-slate-500 truncate max-w-[120px]";
+      }
+
+      renderSlideManagerList();
+      updateSlideDisplay();
+      showToast("새 슬라이드가 추가되었습니다.");
+    }
+
+    // 자막 위치 레이아웃 변경
+    function setSubtitleLayout(layout) {
+      state.subtitleLayout = layout;
+      const standalone = document.getElementById('standaloneSubtitlePanel');
+      const overlay = document.getElementById('overlaySubtitlePanel');
+      const btnLayoutSub = document.getElementById('btnLayoutSub');
+      const btnLayoutOver = document.getElementById('btnLayoutOver');
+
+      if (layout === 'overlay') {
+        overlay.classList.remove('hidden');
+        document.getElementById('subtitlesList').classList.add('hidden');
+        btnLayoutOver.className = "text-rose-500 font-bold px-1.5 py-0.5 rounded hover:bg-slate-800";
+        btnLayoutSub.className = "text-slate-400 px-1.5 py-0.5 rounded hover:bg-slate-800";
+        showToast("오버레이 자막 모드로 전환되었습니다.");
+      } else {
+        overlay.classList.add('hidden');
+        document.getElementById('subtitlesList').classList.remove('hidden');
+        btnLayoutSub.className = "text-rose-500 font-bold px-1.5 py-0.5 rounded hover:bg-slate-800";
+        btnLayoutOver.className = "text-slate-400 px-1.5 py-0.5 rounded hover:bg-slate-800";
+        showToast("하단 분리 자막 배치로 전환되었습니다.");
+      }
+      syncSubtitlesToScreen();
+    }
+
+    function adjustFontSize(offset) {
+      const newSize = state.fontSize + offset;
+      if (newSize < 10 || newSize > 32) return;
+      state.fontSize = newSize;
+
+      const subtitleTexts = document.querySelectorAll('.subtitle-text');
+      subtitleTexts.forEach(el => {
+        el.style.fontSize = `${state.fontSize}px`;
+      });
+      showToast("자막 글자 크기가 조절되었습니다.");
+    }
+
+    // 전체화면 토글
+    function toggleFullScreen() {
+      const container = document.getElementById('slideContainer');
+      if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(err => {
+          showToast("전체화면 전환에 실패했습니다.", "error");
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    // =========================================================================
+    // Gemini 2.5 Flash 실시간 번역 연동 시스템
+    // =========================================================================
+    const firebaseConfig = {
+  apiKey: "AIzaSyBZ1_55DxjbMQr89BRJot3d-kzTJEoh66c",
+  authDomain: "real-time-lectures.firebaseapp.com",
+  databaseURL: "https://real-time-lectures-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "real-time-lectures",
+  storageBucket: "real-time-lectures.firebasestorage.app",
+  messagingSenderId: "505186580394",
+  appId: "1:505186580394:web:eedbcda06b3f6f1164ddd3"
+
+Korean speech: "${koreanText}"`;
+
+      const payload = {
+        contents: [{
+          parts: [{ text: promptText }]
+        }],
+        systemInstruction: {
+          parts: [{ text: systemInstruction }]
+        },
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              en: { type: "STRING", description: "Natural academic translation in English" },
+              vi: { type: "STRING", description: "Accurate translation in Vietnamese" },
+              zh: { type: "STRING", description: "Accurate translation in Chinese Simplified" }
+            },
+            required: ["en", "vi", "zh"]
+          }
+        }
+      };
+
+      for (let i = 0; i < retries; i++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP Error Status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawText) throw new Error("Empty AI translation response.");
+
+          return JSON.parse(rawText);
+        } catch (error) {
+          if (i === retries - 1) throw error;
+          await new Promise(res => setTimeout(res, delay));
+          delay *= 2;
+        }
+      }
+    }
+
+    let currentTranslations = {
+      ko: "교수님께서 설명하실 말씀을 준비중입니다...",
+      en: "Translation prepared...",
+      vi: "Bản dịch đã chuẩn bị...",
+      zh: "翻译准备중..."
+    };
+
+    function syncSubtitlesToScreen() {
+      document.getElementById('sub-ko').textContent = currentTranslations.ko;
+      document.getElementById('sub-en').textContent = currentTranslations.en;
+      document.getElementById('sub-vi').textContent = currentTranslations.vi;
+      document.getElementById('sub-zh').textContent = currentTranslations.zh;
+
+      const overlayContainer = document.getElementById('overlaySubtitleContent');
+      let overlayHtml = `
+        <div class="text-xs text-slate-400 font-bold mb-1 flex items-center gap-1.5">
+          <span class="inline-block w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+          <span>LIVE LECTURE SUBTITLES (실시간 동시 자막)</span>
+        </div>
+        <div class="text-slate-100 font-semibold" style="font-size: ${state.fontSize}px;">
+          ${currentTranslations.ko}
+        </div>
       `;
 
-      Object.entries(CATEGORIES).map(([key, value]) => {
-        const count = state.schedules.filter(s => s.category === key).length;
-        html += `
-          <button
-            id="btn-filter-${key}"
-            class="flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all text-left w-full sm:w-auto lg:w-full ${
-              state.filterCategory === key
-                ? 'bg-slate-700 text-white border border-slate-500 font-semibold'
-                : 'bg-slate-700/20 text-slate-300 border border-transparent hover:bg-slate-700/60'
-            }"
-          >
-            <span class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full ${value.color}"></span>
-              ${value.label}
-            </span>
-            <span class="text-xs bg-slate-800/80 px-2 py-0.5 rounded-md text-slate-400">
-              ${count}
-            </span>
-          </button>
-        `;
-      });
-
-      container.innerHTML = html;
-
-      // 필터 클릭 이벤트 바인딩
-      document.getElementById('btn-filter-all').onclick = () => {
-        state.filterCategory = 'all';
-        renderFiltersAndCalendarAndAgenda();
-      };
-      Object.keys(CATEGORIES).forEach(key => {
-        document.getElementById(`btn-filter-${key}`).onclick = () => {
-          state.filterCategory = key;
-          renderFiltersAndCalendarAndAgenda();
-        };
-      });
-    }
-
-    // 일정 목록(아젠다) 렌더링
-    function renderAgenda() {
-      const agendaList = document.getElementById('agendaList');
-      const selectedDateLabel = document.getElementById('selectedDateLabel');
-      
-      const mm = state.selectedDate.getMonth() + 1;
-      const dd = state.selectedDate.getDate();
-      selectedDateLabel.textContent = `${mm}월 ${dd}일`;
-
-      const list = getSchedulesForDate(state.selectedDate);
-
-      if (list.length === 0) {
-        agendaList.innerHTML = `
-          <div class="flex-1 flex flex-col items-center justify-center text-center p-6 text-slate-500">
-            <i class="fa-solid fa-calendar-minus text-4xl mb-2 text-slate-600"></i>
-            <p class="text-sm font-medium">등록된 일정이 없습니다.</p>
-            <p class="text-xs text-slate-500 mt-1">우측 달력을 클릭하여 새 일정을 추가해보세요.</p>
+      if (state.tracks.en) {
+        overlayHtml += `
+          <div class="text-blue-300 font-bold border-t border-slate-900 pt-1 mt-1" style="font-size: ${state.fontSize}px;">
+            [EN] ${currentTranslations.en}
           </div>
         `;
+      }
+      if (state.tracks.vi) {
+        overlayHtml += `
+          <div class="text-amber-300 font-bold border-t border-slate-900 pt-1 mt-1" style="font-size: ${state.fontSize}px;">
+            [VI] ${currentTranslations.vi}
+          </div>
+        `;
+      }
+      if (state.tracks.zh) {
+        overlayHtml += `
+          <div class="text-red-300 font-bold border-t border-slate-900 pt-1 mt-1" style="font-size: ${state.fontSize}px;">
+            [ZH] ${currentTranslations.zh}
+          </div>
+        `;
+      }
+
+      overlayContainer.innerHTML = overlayHtml;
+    }
+
+    // =========================================================================
+    // Web Speech API 기반 음성인식 구동부
+    // =========================================================================
+    function startSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        showToast("사용중인 웹 브라우저는 Web Speech API를 완벽하게 승인하지 못합니다. 구글 크롬 브라우저를 사용해 주세요.", "error");
         return;
       }
 
-      let html = '';
-      list.forEach(schedule => {
-        const cat = CATEGORIES[schedule.category] || CATEGORIES.etc;
-        html += `
-          <div class="group relative bg-slate-900/60 p-4 rounded-xl border border-slate-700 hover:border-slate-600 transition duration-150 flex flex-col justify-between">
-            <div class="flex items-start justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full ${cat.color} shrink-0"></span>
-                <span class="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-800 text-slate-300">
-                  ${cat.label}
-                </span>
-              </div>
-              <button
-                class="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-500 hover:text-rose-400 p-1 rounded-md transition duration-150 delete-btn"
-                data-id="${schedule.id}"
-                title="일정 삭제"
-              >
-                <i class="fa-solid fa-trash-can"></i>
-              </button>
-            </div>
+      if (state.isRecognizing) return;
 
-            <h4 class="text-slate-100 font-semibold text-sm mt-2 break-all line-clamp-2">
-              ${schedule.title}
-            </h4>
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ko-KR';
+      recognition.interimResults = true;
+      recognition.continuous = true;
 
-            ${schedule.memo ? `
-              <p class="text-xs text-slate-400 mt-1.5 break-all line-clamp-2 bg-slate-800/40 p-2 rounded border border-slate-800">
-                ${schedule.memo}
-              </p>
-            ` : ''}
-
-            <div class="flex items-center gap-1.5 mt-3 text-xs text-slate-400 pt-2 border-t border-slate-800">
-              <i class="fa-regular fa-clock text-indigo-400"></i>
-              <span>${schedule.time}</span>
-            </div>
-          </div>
-        `;
-      });
-
-      agendaList.innerHTML = html;
-
-      // 삭제 핸들러 연동
-      const deleteButtons = agendaList.querySelectorAll('.delete-btn');
-      deleteButtons.forEach(btn => {
-        btn.onclick = async (e) => {
-          e.stopPropagation();
-          const id = btn.getAttribute('data-id');
-          await handleDeleteSchedule(id);
-        };
-      });
-    }
-
-    // 연도 및 월 드롭다운 옵션 초기화
-    function initYearMonthSelectors() {
-      const yearSelect = document.getElementById('yearSelect');
-      const monthSelect = document.getElementById('monthSelect');
-
-      yearSelect.innerHTML = '';
-      monthSelect.innerHTML = '';
-
-      // 현재 연도 기준으로 전후 10년의 범위를 가짐
-      const currentYear = new Date().getFullYear();
-      for (let y = currentYear - 10; y <= currentYear + 10; y++) {
-        const option = document.createElement('option');
-        option.value = y;
-        option.textContent = y;
-        yearSelect.appendChild(option);
-      }
-
-      // 1월부터 12월까지 구성 (Date 객체의 month 가 index 이므로 0부터 시작)
-      for (let m = 0; m < 12; m++) {
-        const option = document.createElement('option');
-        option.value = m;
-        option.textContent = m + 1;
-        monthSelect.appendChild(option);
-      }
-
-      // 선택 변경 이벤트 바인딩
-      yearSelect.addEventListener('change', (e) => {
-        state.currentDate.setFullYear(parseInt(e.target.value));
-        renderCalendar();
-      });
-
-      monthSelect.addEventListener('change', (e) => {
-        state.currentDate.setMonth(parseInt(e.target.value));
-        renderCalendar();
-      });
-    }
-
-    // 달력 본체 렌더링
-    function renderCalendar() {
-      const yearSelect = document.getElementById('yearSelect');
-      const monthSelect = document.getElementById('monthSelect');
-      const calendarGrid = document.getElementById('calendarGrid');
-
-      // 드롭다운 값 동기화
-      yearSelect.value = state.currentDate.getFullYear();
-      monthSelect.value = state.currentDate.getMonth();
-
-      calendarGrid.innerHTML = '';
-
-      const days = getDaysInMonth(state.currentDate);
-
-      days.forEach((dayObj, index) => {
-        const dateSchedules = getSchedulesForDate(dayObj.date);
+      recognition.onstart = () => {
+        state.isRecognizing = true;
+        document.getElementById('btnStartSTT').classList.add('hidden');
+        document.getElementById('btnStopSTT').classList.remove('hidden');
         
-        // 날짜 구분자 체크
-        const dayIsToday = getFormatDateStr(dayObj.date) === getFormatDateStr(new Date());
-        const dayIsSelected = getFormatDateStr(dayObj.date) === getFormatDateStr(state.selectedDate);
-        const isSunday = dayObj.date.getDay() === 0;
-        const isSaturday = dayObj.date.getDay() === 6;
+        const micInd = document.getElementById('micIndicator');
+        micInd.className = "h-2.5 w-2.5 rounded-full bg-rose-500 animate-pulse";
+        document.getElementById('micText').textContent = "실시간 녹음/강의 송출 중";
+        showToast("마이크 음성 인식을 시작했습니다. 강의를 진행하세요.");
+      };
 
-        const dateItem = document.createElement('div');
-        dateItem.className = `relative flex flex-col justify-between p-1 sm:p-2 rounded-xl cursor-pointer transition border duration-150 select-none overflow-hidden ${
-          !dayObj.isCurrentMonth ? 'opacity-30' : ''
-        } ${
-          dayIsSelected
-            ? 'bg-indigo-600/30 border-indigo-500 shadow-inner shadow-indigo-500/20'
-            : 'bg-slate-900/40 hover:bg-slate-700/60 border-slate-700/60'
-        }`;
+      recognition.onresult = async (event) => {
+        let interimTranscript = '';
+        let finalSentence = '';
 
-        // 클릭 이벤트 연결
-        dateItem.onclick = () => {
-          openAddModalWithDate(dayObj.date);
-        };
-
-        // 날짜 숫자 라벨 테두리 스타일
-        let numberClass = 'text-slate-300';
-        if (dayIsToday) {
-          numberClass = 'bg-indigo-600 text-white shadow-md';
-        } else if (isSunday) {
-          numberClass = 'text-rose-400';
-        } else if (isSaturday) {
-          numberClass = 'text-blue-400';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalSentence += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
         }
 
-        // 스케줄 미니 프리뷰 생성
-        let previewsHtml = '';
-        dateSchedules.slice(0, 3).forEach(s => {
-          const cat = CATEGORIES[s.category] || CATEGORIES.etc;
-          previewsHtml += `
-            <div class="text-[10px] truncate px-1.5 py-0.5 rounded-md flex items-center gap-1 ${cat.light} ${cat.text}" title="${s.title}">
-              <span class="w-1.5 h-1.5 rounded-full ${cat.color} shrink-0"></span>
-              <span class="truncate">{s.title}</span>
-            </div>
-          `;
-        });
-
-        if (dateSchedules.length > 3) {
-          previewsHtml += `
-            <div class="text-[9px] text-slate-400 pl-1">
-              외 ${dateSchedules.length - 3}개...
-            </div>
-          `;
+        if (interimTranscript.trim().length > 0) {
+          currentTranslations.ko = interimTranscript;
+          syncSubtitlesToScreen();
         }
 
-        dateItem.innerHTML = `
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${numberClass}">
-              ${dayObj.date.getDate()}
-            </span>
-            ${dateSchedules.length > 0 ? `
-              <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 rounded-full font-bold lg:hidden">
-                ${dateSchedules.length}
-              </span>
-            ` : ''}
-          </div>
-          <div class="hidden lg:flex flex-col gap-1 flex-1 justify-end overflow-hidden">
-            ${previewsHtml}
-          </div>
-        `;
+        if (finalSentence.trim().length > 0) {
+          const refinedKo = finalSentence.trim();
+          currentTranslations.ko = refinedKo;
+          syncSubtitlesToScreen();
 
-        calendarGrid.appendChild(dateItem);
-      });
+          currentTranslations.en = "AI Translating English...";
+          currentTranslations.vi = "Đang dịch tiếng Việt...";
+          currentTranslations.zh = "中文正在翻译중...";
+          syncSubtitlesToScreen();
+
+          try {
+            const translationsResult = await translateSpeechWithRetry(refinedKo);
+            
+            currentTranslations.en = translationsResult.en;
+            currentTranslations.vi = translationsResult.vi;
+            currentTranslations.zh = translationsResult.zh;
+            
+            syncSubtitlesToScreen();
+
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            
+            const logItem = {
+              time: timeStr,
+              ko: refinedKo,
+              en: translationsResult.en,
+              vi: translationsResult.vi,
+              zh: translationsResult.zh
+            };
+            
+            state.lectureLog.push(logItem);
+            appendLogToUI(logItem);
+
+          } catch (err) {
+            console.error("Gemini API 통신 실패:", err);
+            currentTranslations.en = "[오류] 실시간 번역 서버 부하 또는 네트워크 지연";
+            currentTranslations.vi = "[Lỗi] Độ trễ mạng 또는 tải máy chủ";
+            currentTranslations.zh = "[错误] 翻译服务器超时";
+            syncSubtitlesToScreen();
+          }
+        }
+      };
+
+      recognition.onerror = (e) => {
+        if (e.error === 'no-speech') {
+          console.log("음성 감지: 무음 상태 (대기 중)");
+          return;
+        }
+        
+        console.error("음성 인식 과정 중 오류 발생:", e.error);
+        if (e.error === 'not-allowed') {
+          showToast("마이크 디바이스 권한 획득에 실패했습니다.", "error");
+          stopSpeechRecognition();
+        }
+      };
+
+      recognition.onend = () => {
+        if (state.isRecognizing) {
+          setTimeout(() => {
+            if (state.isRecognizing) {
+              try {
+                recognition.start();
+              } catch (err) {
+                console.log("음성 엔진 루프 복구 진행 중");
+              }
+            }
+          }, 300);
+        }
+      };
+
+      recognition.start();
     }
 
-    // 모달 내 카테고리 선택 버튼들 동적 배치
-    function renderModalCategoryButtons() {
-      const container = document.getElementById('categoryButtonContainer');
-      container.innerHTML = '';
+    function stopSpeechRecognition() {
+      if (!state.isRecognizing) return;
+      state.isRecognizing = false;
+      if (recognition) {
+        recognition.stop();
+      }
 
-      Object.entries(CATEGORIES).forEach(([key, value]) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.onclick = () => {
-          state.selectedModalCategory = key;
-          renderModalCategoryButtons();
-        };
-
-        const isActive = state.selectedModalCategory === key;
-        btn.className = `py-2 rounded-xl text-xs font-semibold border flex flex-col items-center justify-center gap-1 transition ${
-          isActive
-            ? 'bg-slate-700 text-white border-slate-500'
-            : 'bg-slate-900/50 text-slate-400 border-slate-700 hover:bg-slate-900'
-        }`;
-
-        btn.innerHTML = `
-          <span class="w-2.5 h-2.5 rounded-full ${value.color}"></span>
-          ${value.label}
-        `;
-
-        container.appendChild(btn);
-      });
-    }
-
-    // 종합 렌더러
-    function renderFiltersAndCalendarAndAgenda() {
-      renderCategoryFilters();
-      renderCalendar();
-      renderAgenda();
-    }
-
-    // 모달 관리 핸들러들 (글로벌 윈도우 연결)
-    window.openAddModalWithDate = function(date) {
-      state.selectedDate = date;
-      document.getElementById('newDate').value = getFormatDateStr(date);
-      document.getElementById('newTitle').value = '';
-      document.getElementById('newMemo').value = '';
-      document.getElementById('modalError').classList.add('hidden');
-      state.selectedModalCategory = 'work'; // 기본값
-
-      renderModalCategoryButtons();
-      renderCalendar(); // 선택 날짜 하이라이트 반영
-      renderAgenda();
-
-      const modal = document.getElementById('scheduleModal');
-      modal.classList.remove('hidden');
-    };
-
-    window.closeModal = function() {
-      const modal = document.getElementById('scheduleModal');
-      modal.classList.add('hidden');
-    };
-
-    // 달력 조작 핸들러들
-    window.handlePrevMonth = function() {
-      state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() - 1, 1);
-      renderCalendar();
-    };
-
-    window.handleNextMonth = function() {
-      state.currentDate = new Date(state.currentDate.getFullYear(), state.currentDate.getMonth() + 1, 1);
-      renderCalendar();
-    };
-
-    window.handleToday = function() {
-      state.currentDate = new Date();
-      state.selectedDate = new Date();
-      renderFiltersAndCalendarAndAgenda();
-    };
-
-    // 일정 추가 저장 트랜잭션
-    window.handleAddSchedule = async function(e) {
-      e.preventDefault();
+      document.getElementById('btnStartSTT').classList.remove('hidden');
+      document.getElementById('btnStopSTT').classList.add('hidden');
       
-      const title = document.getElementById('newTitle').value.trim();
-      const date = document.getElementById('newDate').value;
-      const time = document.getElementById('newTime').value;
-      const memo = document.getElementById('newMemo').value;
-      const errorDiv = document.getElementById('modalError');
-      const errorMessage = document.getElementById('modalErrorMessage');
-
-      if (!state.user) {
-        errorMessage.textContent = "사용자 인증 오류입니다. 다시 열어주세요.";
-        errorDiv.classList.remove('hidden');
-        return;
-      }
-      if (!title) {
-        errorMessage.textContent = "일정 제목을 적어주세요.";
-        errorDiv.classList.remove('hidden');
-        return;
-      }
-
-      try {
-        const path = collection(db, 'artifacts', appId, 'users', state.user.uid, 'schedules');
-        await addDoc(path, {
-          title: title,
-          date: date,
-          time: time,
-          category: state.selectedModalCategory,
-          memo: memo,
-          createdAt: new Date().toISOString()
-        });
-
-        closeModal();
-        showToast("일정이 성공적으로 저장되었습니다!");
-      } catch (err) {
-        console.error(err);
-        errorMessage.textContent = "서버 저장에 실패했습니다. 다시 시도해주세요.";
-        errorDiv.classList.remove('hidden');
-      }
-    };
-
-    // 일정 삭제 트랜잭션
-    async function handleDeleteSchedule(id) {
-      if (!state.user) return;
-      try {
-        const docRef = doc(db, 'artifacts', appId, 'users', state.user.uid, 'schedules', id);
-        await deleteDoc(docRef);
-        showToast("일정이 성공적으로 삭제되었습니다.");
-      } catch (err) {
-        console.error("일정 제거 실패:", err);
-        showToast("삭제 중 오류가 발생했습니다.", "error");
-      }
+      const micInd = document.getElementById('micIndicator');
+      micInd.className = "h-2.5 w-2.5 rounded-full bg-slate-500";
+      document.getElementById('micText').textContent = "마이크 일시 정지됨";
+      showToast("마이크 번역 감지를 일시 차단했습니다.");
     }
 
-    // ==========================================
-    // 앱 부팅 및 인증 플로우 (Rule 3 준수)
-    // ==========================================
-    async function initApp() {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (error) {
-        console.error("Firebase Auth 인증 실패:", error);
-        state.dbStatus = 'error';
-        updateDbStatusUI();
+    function appendLogToUI(log) {
+      const container = document.getElementById('lectureLogContainer');
+      if (state.lectureLog.length === 1) {
+        container.innerHTML = '';
       }
 
-      // 인증 상태 리스너 등록
-      onAuthStateChanged(auth, (currentUser) => {
-        if (currentUser) {
-          state.user = currentUser;
-          document.getElementById('loadingScreen').classList.add('hidden');
-          // 드롭다운 셀렉터 세팅
-          initYearMonthSelectors();
-          // 데이터 스트리밍 시작
-          startSchedulesRealtimeSync();
-        }
+      const card = document.createElement('div');
+      card.className = "bg-slate-950 p-3.5 rounded-xl border border-slate-850 space-y-1.5 shadow-sm";
+      card.innerHTML = `
+        <div class="flex justify-between items-center text-[10px] text-slate-500 font-bold">
+          <span class="flex items-center gap-1">
+            <i class="fa-solid fa-microphone-lines text-rose-500"></i>
+            강의 발언 기록
+          </span>
+          <span>${log.time}</span>
+        </div>
+        <p class="text-slate-100 font-bold">[KO] ${log.ko}</p>
+        <p class="text-blue-400 font-semibold">[EN] ${log.en}</p>
+        <p class="text-amber-400 font-semibold">[VI] ${log.vi}</p>
+        <p class="text-red-400 font-semibold">[ZH] ${log.zh}</p>
+      `;
+
+      container.appendChild(card);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function exportLectureNotes() {
+      if (state.lectureLog.length === 0) {
+        showToast("저장할 실시간 강의 데이터 기록이 존재하지 않습니다.", "error");
+        return;
+      }
+
+      const dateStr = new Date().toLocaleDateString('ko-KR');
+      let markdown = `# 우송대학교 실시간 다국어 강의 지원 강의록\n`;
+      markdown += `* **강의 일시:** ${dateStr}\n`;
+      markdown += `* **작성 장표:** ${state.slides[state.currentSlideIdx]?.title || "컴퓨터공학 원리"}\n`;
+      markdown += `* **기록 건수:** 총 ${state.lectureLog.length}개 문장 아카이브\n\n`;
+      markdown += `---\n\n`;
+
+      state.lectureLog.forEach((log, index) => {
+        markdown += `### [${index + 1}] Lecture Time: ${log.time}\n`;
+        markdown += `* **한국어 발언 (Original):** ${log.ko}\n`;
+        markdown += `* **English Translation:** ${log.en}\n`;
+        markdown += `* **Tiếng Việt Translation:** ${log.vi}\n`;
+        markdown += `* **中文简体翻译:** ${log.zh}\n\n`;
       });
+
+      try {
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Woosong_Lecture_Report_${new Date().toISOString().slice(0,10)}.md`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast("강의록이 마크다운 파일로 다운로드되었습니다.");
+      } catch (err) {
+        console.error("파일 다운로드 처리 오류:", err);
+        showToast("강의록 파일 다운로드 중 실패했습니다.", "error");
+      }
     }
 
-    // Firestore 실시간 스냅샷 구동 (Rule 1 & Rule 2 준수)
-    function startSchedulesRealtimeSync() {
-      state.dbStatus = 'connecting';
-      updateDbStatusUI();
+    // 모듈 스코프 격리 해소 및 전역 노출 설정
+    window.goToPrevSlide = goToPrevSlide;
+    window.goToNextSlide = goToNextSlide;
+    window.changeSlideTheme = changeSlideTheme;
+    window.openSlideManager = openSlideManager;
+    window.closeSlideManager = closeSlideManager;
+    window.startSpeechRecognition = startSpeechRecognition;
+    window.stopSpeechRecognition = stopSpeechRecognition;
+    window.exportLectureNotes = exportLectureNotes;
+    window.addNewSlide = addNewSlide;
+    window.setSubtitleLayout = setSubtitleLayout;
+    window.adjustFontSize = adjustFontSize;
 
-      // Rule 1: 개인 프라이빗 데이터 보관 전용 경로 정의
-      const ref = collection(db, 'artifacts', appId, 'users', state.user.uid, 'schedules');
-
-      // Rule 2: 복합 쿼리를 배제하고 인메모리 정렬 기법을 적용하여 쿼리 실패 차단
-      onSnapshot(ref, 
-        (snapshot) => {
-          const list = [];
-          snapshot.forEach(doc => {
-            list.push({ id: doc.id, ...doc.data() });
-          });
-
-          // 인메모리 정렬 실행 (날짜 오름차순, 날짜가 같다면 시간 기준 오름차순)
-          list.sort((a, b) => {
-            const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
-            if (dateDiff !== 0) return dateDiff;
-            return a.time.localeCompare(b.time);
-          });
-
-          state.schedules = list;
-          state.dbStatus = 'synced';
-          
-          updateDbStatusUI();
-          renderFiltersAndCalendarAndAgenda();
-        },
-        (error) => {
-          console.error("Firestore 수신 중단:", error);
-          state.dbStatus = 'error';
-          updateDbStatusUI();
-        }
-      );
+    // DOM이 완전히 파싱된 상태에서 안전하게 이벤트를 바인딩하기 위해 부트스트랩 처리
+    function bootstrap() {
+      initEventBindings(); 
+      updateSlideDisplay();
+      const loader = document.getElementById('loadingScreen');
+      if (loader) {
+        loader.classList.add('hidden');
+      }
     }
 
-    // 도큐먼트 로드 직후 플래너 초기 실행 트리거
-    window.onload = () => {
-      initApp();
-    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootstrap);
+    } else {
+      bootstrap();
+    }
   </script>
 </body>
 </html>
