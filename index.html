@@ -94,7 +94,7 @@
         
         <div id="apiStatus" class="flex items-center space-x-2 bg-slate-950 px-3 py-1 rounded-full border border-slate-800 text-[11px] text-slate-400">
           <span class="h-2 w-2 rounded-full bg-slate-500 animate-pulse" id="apiIndicator"></span>
-          <span id="apiStatusText">Firebase 초기화 중...</span>
+          <span id="apiStatusText">무료 번역 모드 준비 중...</span>
         </div>
       </div>
     </div>
@@ -593,7 +593,7 @@
       } catch (err) {
         console.warn("인증 수신 거부됨 (Firebase 미인증 로컬 브라우저 세션 모드로 전환):", err);
         firebaseReady = false;
-        document.getElementById('apiStatusText').textContent = "실시간 로컬 번역 가동 중";
+        document.getElementById('apiStatusText').textContent = "무료 번역 모드 가동 중";
         document.getElementById('apiIndicator').className = "h-2 w-2 rounded-full bg-amber-500 animate-pulse";
         
         setTimeout(() => {
@@ -651,9 +651,9 @@
     let isOverlayLayout = false;
     let lectureLogs = []; // { timestamp, ko, en, vi, zh, slide }
 
-    // 무료 번역 모드: 별도 ChatGPT/Gemini API 키 없이 브라우저에서 번역 수행
+    // 무료 번역 모드: 별도 API 키 없이 브라우저에서 번역 수행
     // 주의: 공개 번역 엔드포인트를 사용하므로 대량 사용 시 제한될 수 있습니다.
-    const apiKey = "FREE_TRANSLATION_MODE"; 
+    const apiKey = null; // 무료 번역 모드에서는 사용하지 않음
 
     // =========================================================================
     // DOM 요소 캐싱
@@ -1060,7 +1060,7 @@
     };
 
     // =========================================================================
-    // 실시간 음성인식 엔진 제어 (Web Speech API 연동 및 Gemini API 직렬 중계)
+    // 실시간 음성인식 엔진 제어 (Web Speech API + 무료 번역 엔진)
     // =========================================================================
     const setupSpeechRecognition = () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1123,7 +1123,7 @@
         elSubKo.textContent = currentActiveText;
         updateOverlaySubtitle("ko", currentActiveText);
 
-        // 완전 수집 문장이 발생할 때 최강의 Gemini API 다국어 번역엔진이 발화
+        // 완전 수집 문장이 발생할 때 무료 다국어 번역엔진 실행
         if (finalTranscript.trim()) {
           const sourceText = finalTranscript.trim();
           
