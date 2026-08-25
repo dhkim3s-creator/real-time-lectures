@@ -340,11 +340,10 @@
 
         <div class="mt-2.5 bg-slate-950/80 border border-slate-800/80 rounded-xl p-2.5 text-[11px] text-slate-400 leading-relaxed space-y-1">
           <p class="text-slate-200 font-bold flex items-center gap-1">
-            <i class="fa-solid fa-lightbulb text-amber-400"></i> 이용 안내
+            <i class="fa-solid fa-lightbulb text-amber-400"></i> 스마트폰 마이크 연결 안내
           </p>
-          <p>• PDF, PPT, PPTX 교안 파일 업로드가 가능합니다.</p>
-          <p>• 스마트폰 수강 시 자막 창이나 <b>'새 창 분리'</b> 팝업을 활용하세요.</p>
-          <p>• 교수님 발화 시 실시간 4개 국어로 다국어 자막이 저장됩니다.</p>
+          <p>• 마이크 허용 후 재요청 팝업 없이 계속 사용할 수 있도록 백그라운드 세션이 유지됩니다.</p>
+          <p>• 스마트폰 차단이 해제되지 않을 경우, 브라우저 주소창 좌측의 🔒(권한) 아이콘을 눌러 <b>'마이크 : 허용'</b>으로 변경하세요.</p>
         </div>
       </div>
 
@@ -459,6 +458,10 @@
     let lectureLogs = [];
     let currentSlide = 0;
     let useGeminiAI = true;
+
+    // Mobile Microphone Persistence State
+    let activeAudioStream = null;
+    let micPermissionGranted = false;
 
     // Preset Default Slides
     let slides = [
@@ -597,7 +600,8 @@
           snap.forEach(doc => cloudLogs.push({ id: doc.id, ...doc.data() }));
           if (cloudLogs.length > 0) {
             cloudLogs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-            lectureLogs = cloudLogs;
+            // 강의 아카이브를 최대 2개로 제한
+            lectureLogs = cloudLogs.slice(0, 2);
             renderLogs();
           }
         }, (err) => {
@@ -649,7 +653,6 @@ Korean: "${text}"`;
       const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!rawText || !rawText.trim()) throw new Error("Empty text content from Gemini response");
       
-      // Clean up markdown code blocks if present (e.g. ```json ... ```)
       const cleanedText = rawText.replace(/```json\s*|\s*```/gi, "").trim();
       if (!cleanedText) throw new Error("Cleaned JSON string is empty");
       
@@ -699,12 +702,37 @@ Korean: "${text}"`;
     }
 
     // ===============================================================
-    // 5. Speech Recognition (Web Speech API)
+    // 5. Speech Recognition & Persistent Mic Stream Management
     // ===============================================================
+    async function requestMicPermission() {
+      // If active audio stream exists and is live, keep using it without re-asking!
+      if (micPermissionGranted && activeAudioStream && activeAudioStream.active && activeAudioStream.getAudioTracks().some(t => t.readyState === 'live')) {
+        return true;
+      }
+
+      try {
+        if (navigator.mediaDevices?.getUserMedia) {
+          // Request continuous stream and DO NOT stop tracks immediately!
+          // Keeping the track open in memory prevents smartphones from repeatedly showing the permission popup.
+          activeAudioStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+          });
+          micPermissionGranted = true;
+          return true;
+        }
+        return true;
+      } catch (err) {
+        console.warn("Mic permission error:", err);
+        micPermissionGranted = false;
+        showToast("마이크 사용 권한이 필요합니다. 주소창 좌측 🔒(설정)에서 마이크 권한을 [허용]으로 변경해주세요.", false);
+        return false;
+      }
+    }
+
     function createRecognition() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        showToast("이 브라우저는 음성인식을 지원하지 않습니다. Chrome/Edge를 이용하세요.", false);
+        showToast("이 브라우저는 음성인식을 지원하지 않습니다. Chrome/Edge/Safari를 이용하세요.", false);
         return null;
       }
 
@@ -724,15 +752,16 @@ Korean: "${text}"`;
       rec.onerror = (event) => {
         const err = event.error;
         if (err === "aborted" || err === "no-speech" || err === "network") {
-          if (userWantedSTT) scheduleRestartSTT(800);
+          if (userWantedSTT) scheduleRestartSTT(600);
           return;
         }
         if (err === "not-allowed" || err === "service-not-allowed") {
           userWantedSTT = false;
-          showToast("마이크 사용 권한이 필요합니다.", false);
+          micPermissionGranted = false;
+          showToast("마이크 허용이 거부되었습니다. 스마트폰 상단 🔒 아이콘에서 마이크 권한을 [허용]해주셔야 작동합니다.", false);
           stopSTT(false);
         } else if (userWantedSTT) {
-          scheduleRestartSTT(1200);
+          scheduleRestartSTT(1000);
         }
       };
 
@@ -740,7 +769,7 @@ Korean: "${text}"`;
         isRecognizing = false;
         if (userWantedSTT) {
           setMicStatus("음성 재연결 중...", "bg-amber-500", true);
-          scheduleRestartSTT(600);
+          scheduleRestartSTT(500);
         } else {
           setMicStatus("마이크 대기", "bg-slate-500");
           els.btnStartSTT.classList.remove("hidden");
@@ -773,20 +802,6 @@ Korean: "${text}"`;
       return rec;
     }
 
-    async function requestMicPermission() {
-      try {
-        if (navigator.mediaDevices?.getUserMedia) {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach(t => t.stop());
-        }
-        return true;
-      } catch (err) {
-        console.warn("Mic permission error:", err);
-        showToast("마이크 사용 권한이 없거나 브라우저 정책에 의해 제한되었습니다.", false);
-        return false;
-      }
-    }
-
     async function startSTT() {
       try {
         const ok = await requestMicPermission();
@@ -806,11 +821,11 @@ Korean: "${text}"`;
         recognition.start();
       } catch (err) {
         console.warn("Speech recognition start failed:", err);
-        if (userWantedSTT) scheduleRestartSTT(1000);
+        if (userWantedSTT) scheduleRestartSTT(800);
       }
     }
 
-    function scheduleRestartSTT(delay = 800) {
+    function scheduleRestartSTT(delay = 600) {
       if (!userWantedSTT) return;
       clearTimeout(restartTimer);
       restartTimer = setTimeout(() => {
@@ -826,6 +841,13 @@ Korean: "${text}"`;
       clearTimeout(restartTimer);
       try { recognition?.stop(); } catch (_) {}
       isRecognizing = false;
+
+      // Stop persistent active audio stream when user explicitly pauses
+      if (activeAudioStream) {
+        activeAudioStream.getTracks().forEach(track => track.stop());
+        activeAudioStream = null;
+      }
+
       setMicStatus("마이크 대기", "bg-slate-500");
       els.btnStartSTT.classList.remove("hidden");
       els.btnStopSTT.classList.add("hidden");
@@ -862,6 +884,10 @@ Korean: "${text}"`;
       const saved = await saveLogToFirebase(log);
       if (!saved) {
         lectureLogs.unshift({ ...log, createdAt: { seconds: Math.floor(Date.now() / 1000) } });
+        // 로컬 기록 역시 최대 2개로 유지
+        if (lectureLogs.length > 2) {
+          lectureLogs = lectureLogs.slice(0, 2);
+        }
         renderLogs();
       }
     }
@@ -1156,6 +1182,11 @@ Korean: "${text}"`;
     }
 
     function renderLogs() {
+      // 렌더링 시점에 최대 2개 보장
+      if (lectureLogs.length > 2) {
+        lectureLogs = lectureLogs.slice(0, 2);
+      }
+
       els.logContainer.innerHTML = "";
       if (!lectureLogs.length) {
         els.logContainer.appendChild(els.emptyLog);
@@ -1291,7 +1322,6 @@ Student Question: ${promptText}`;
         els.fileInput.addEventListener("change", (e) => {
           if (e.target.files && e.target.files.length > 0) {
             handleFiles(e.target.files);
-            // Reset input value to allow re-uploading the same file
             e.target.value = "";
           }
         });
@@ -1369,7 +1399,7 @@ Student Question: ${promptText}`;
         }
       });
 
-      // Fullscreen Toggle with Permissions Policy guard
+      // Fullscreen Toggle
       els.btnFullScreen.addEventListener("click", async () => {
         const vp = $("slideViewport");
         try {
