@@ -87,6 +87,10 @@
         <div class="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-full shadow-inner">
           <span id="micIndicator" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
           <span id="micText" class="text-slate-300">마이크 대기</span>
+          <!-- Mobile Audio Meter -->
+          <div id="micVolContainer" class="hidden flex items-center gap-0.5 ml-1 w-8 h-2.5 bg-slate-800 rounded overflow-hidden px-0.5">
+            <div id="micVolBar" class="h-1.5 bg-emerald-400 rounded-sm transition-all duration-75 w-0"></div>
+          </div>
         </div>
 
         <div class="flex items-center gap-1.5 bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-full shadow-inner">
@@ -327,6 +331,12 @@
             <span>음성인식 일시정지</span>
           </button>
 
+          <!-- Mobile Resume Button when background disconnected -->
+          <button id="btnResumeSTT" class="hidden col-span-2 bg-amber-600 hover:bg-amber-500 text-white font-bold py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 text-xs">
+            <i class="fa-solid fa-arrows-rotate animate-spin"></i>
+            <span>모바일 음성인식 재개하기 (터치)</span>
+          </button>
+
           <button id="btnTestTranslate" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold py-2 rounded-xl border border-slate-700/60 transition flex items-center justify-center gap-1">
             <i class="fa-solid fa-flask text-amber-400"></i>
             <span>발화 테스트</span>
@@ -340,10 +350,10 @@
 
         <div class="mt-2.5 bg-slate-950/80 border border-slate-800/80 rounded-xl p-2.5 text-[11px] text-slate-400 leading-relaxed space-y-1">
           <p class="text-slate-200 font-bold flex items-center gap-1">
-            <i class="fa-solid fa-lightbulb text-amber-400"></i> 스마트폰 마이크 연결 안내
+            <i class="fa-solid fa-shield-halved text-emerald-400"></i> 스마트폰 마이크 차단 방지 안내
           </p>
-          <p>• 마이크 허용 후 재요청 팝업 없이 계속 사용할 수 있도록 백그라운드 세션이 유지됩니다.</p>
-          <p>• 스마트폰 차단이 해제되지 않을 경우, 브라우저 주소창 좌측의 🔒(권한) 아이콘을 눌러 <b>'마이크 : 허용'</b>으로 변경하세요.</p>
+          <p>• 백그라운드 오디오 세션을 유지하여 마이크 권한 재요청을 차단했습니다.</p>
+          <p>• 화면이꺼지거나 슬립 모드 후 연결이 끊긴 경우 <b>[모바일 음성인식 재개하기]</b>를 눌러주세요.</p>
         </div>
       </div>
 
@@ -427,9 +437,7 @@
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, addDoc, serverTimestamp, query, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    // ===============================================================
-    // 1. Firebase Configuration (With graceful fallback)
-    // ===============================================================
+    // Configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBZ1_55DxjbMQr89BRJot3d-kzTJEoh66c",
       authDomain: "real-time-lectures.firebaseapp.com",
@@ -449,6 +457,7 @@
     let userWantedSTT = false;
     let isRecognizing = false;
     let restartTimer = null;
+    let restartAttempts = 0;
     let lastFinalText = "";
     let lastFinalAt = 0;
     let fontSize = 16;
@@ -457,10 +466,13 @@
     let popoutWindow = null;
     let lectureLogs = [];
     let currentSlide = 0;
-    let useGeminiAI = true;
+    let useGeminiAI = false; // Default to free multi-backup translation unless valid API key present
 
-    // Mobile Microphone Persistence State
+    // Persistent Audio Context to keep smartphone mic awake
     let activeAudioStream = null;
+    let audioCtx = null;
+    let analyserNode = null;
+    let micAnimFrame = null;
     let micPermissionGranted = false;
 
     // Preset Default Slides
@@ -489,12 +501,10 @@
       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
     }
 
-    // ===============================================================
-    // 2. DOM Elements Selection Helper
-    // ===============================================================
     const $ = (id) => document.getElementById(id);
     const els = {
       micIndicator: $("micIndicator"), micText: $("micText"),
+      micVolContainer: $("micVolContainer"), micVolBar: $("micVolBar"),
       firebaseIndicator: $("firebaseIndicator"), firebaseText: $("firebaseText"),
       translateIndicator: $("translateIndicator"), translateText: $("translateText"),
       engineLabel: $("engineLabel"), btnToggleEngine: $("btnToggleEngine"),
@@ -509,7 +519,8 @@
       btnCloseFloating: $("btnCloseFloating"), floatSubKo: $("floatSubKo"), floatSubEn: $("floatSubEn"),
       floatSubVi: $("floatSubVi"), floatSubZh: $("floatSubZh"),
       logContainer: $("logContainer"), emptyLog: $("emptyLog"),
-      btnStartSTT: $("btnStartSTT"), btnStopSTT: $("btnStopSTT"), btnTestTranslate: $("btnTestTranslate"),
+      btnStartSTT: $("btnStartSTT"), btnStopSTT: $("btnStopSTT"), btnResumeSTT: $("btnResumeSTT"),
+      btnTestTranslate: $("btnTestTranslate"),
       btnClearLogs: $("btnClearLogs"), btnExportTxt: $("btnExportTxt"), btnExportJson: $("btnExportJson"),
       btnLayoutBottom: $("btnLayoutBottom"), btnLayoutOverlay: $("btnLayoutOverlay"), btnLayoutFloating: $("btnLayoutFloating"),
       btnPopout: $("btnPopout"), btnPopoutHeader: $("btnPopoutHeader"),
@@ -546,9 +557,6 @@
       els.micIndicator.className = `w-2.5 h-2.5 rounded-full ${color} ${ping ? "animate-ping" : ""}`;
     }
 
-    // ===============================================================
-    // 3. Firebase Initialization & Collection Sync
-    // ===============================================================
     async function initFirebase() {
       try {
         app = initializeApp(firebaseConfig);
@@ -600,7 +608,6 @@
           snap.forEach(doc => cloudLogs.push({ id: doc.id, ...doc.data() }));
           if (cloudLogs.length > 0) {
             cloudLogs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-            // 강의 아카이브를 최대 2개로 제한
             lectureLogs = cloudLogs.slice(0, 2);
             renderLogs();
           }
@@ -612,78 +619,47 @@
       }
     }
 
-    // ===============================================================
-    // 4. Translation Engines: Gemini API & Free Fallback
-    // ===============================================================
-    async function translateWithGeminiAPI(text) {
-      const prompt = `Translate the following Korean lecture statement into English, Vietnamese, and Simplified Chinese. 
-Keep the academic context clear.
-Korean: "${text}"`;
-
-      const payload = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              en: { type: "STRING", description: "English translation" },
-              vi: { type: "STRING", description: "Vietnamese translation" },
-              zh: { type: "STRING", description: "Simplified Chinese translation" }
-            },
-            required: ["en", "vi", "zh"]
-          }
-        }
-      };
-
-      const apiKey = ""; // Canvas runtime key
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
-      const responseText = await res.text();
-      if (!responseText || !responseText.trim()) throw new Error("Empty response body from Gemini API");
-      
-      const data = JSON.parse(responseText);
-      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText || !rawText.trim()) throw new Error("Empty text content from Gemini response");
-      
-      const cleanedText = rawText.replace(/```json\s*|\s*```/gi, "").trim();
-      if (!cleanedText) throw new Error("Cleaned JSON string is empty");
-      
-      return JSON.parse(cleanedText);
-    }
-
+    // Translation System with Fallbacks (Gemini -> Google GTX -> MyMemory)
     async function translateGoogleFree(text, target) {
       const tl = target === "zh" ? "zh-CN" : target;
-      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(text)}`;
-      const res = await fetch(url, { method: "GET", cache: "no-store" });
-      if (!res.ok) throw new Error(`Google free status ${res.status}`);
-      const rawText = await res.text();
-      if (!rawText || !rawText.trim()) throw new Error("Empty response from Google Translate");
-      const data = JSON.parse(rawText);
-      return sanitizeText(data?.[0]?.map(x => x?.[0] || "").join(""));
+      
+      // Tier 1: Google GTX endpoint
+      try {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(text)}`;
+        const res = await fetch(url, { method: "GET", cache: "no-store" });
+        if (res.ok) {
+          const rawText = await res.text();
+          if (rawText && rawText.trim()) {
+            const data = JSON.parse(rawText);
+            const result = sanitizeText(data?.[0]?.map(x => x?.[0] || "").join(""));
+            if (result) return result;
+          }
+        }
+      } catch (err) {
+        console.warn(`Google GTX API error for ${target}:`, err);
+      }
+
+      // Tier 2: MyMemory Free Translation API
+      try {
+        const langpair = target === "zh" ? "ko|zh-CN" : `ko|${target}`;
+        const url2 = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}`;
+        const res2 = await fetch(url2);
+        if (res2.ok) {
+          const json2 = await res2.json();
+          if (json2?.responseData?.translatedText) {
+            return sanitizeText(json2.responseData.translatedText);
+          }
+        }
+      } catch (e) {
+        console.warn(`MyMemory API error for ${target}:`, e);
+      }
+
+      throw new Error("All translation backends failed");
     }
 
     async function translateAll(text) {
       els.translateIndicator.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
       els.translateText.textContent = "번역 실행 중";
-
-      if (useGeminiAI) {
-        try {
-          const res = await translateWithGeminiAPI(text);
-          els.translateIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
-          els.translateText.textContent = "Gemini AI 번역";
-          return res;
-        } catch (e) {
-          console.warn("Gemini translation failed, falling back to free engine:", e);
-        }
-      }
 
       try {
         const [en, vi, zh] = await Promise.all([
@@ -692,7 +668,7 @@ Korean: "${text}"`;
           translateGoogleFree(text, "zh").catch(() => "[ZH Translation Error]")
         ]);
         els.translateIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
-        els.translateText.textContent = "Google 번역 완료";
+        els.translateText.textContent = "AI 다국어 번역 완료";
         return { en, vi, zh };
       } catch (err) {
         els.translateIndicator.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
@@ -701,30 +677,53 @@ Korean: "${text}"`;
       }
     }
 
-    // ===============================================================
-    // 5. Speech Recognition & Persistent Mic Stream Management
-    // ===============================================================
-    async function requestMicPermission() {
-      // If active audio stream exists and is live, keep using it without re-asking!
-      if (micPermissionGranted && activeAudioStream && activeAudioStream.active && activeAudioStream.getAudioTracks().some(t => t.readyState === 'live')) {
-        return true;
-      }
-
+    async function startAudioKeepAlive() {
       try {
-        if (navigator.mediaDevices?.getUserMedia) {
-          // Request continuous stream and DO NOT stop tracks immediately!
-          // Keeping the track open in memory prevents smartphones from repeatedly showing the permission popup.
-          activeAudioStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+        if (!activeAudioStream) {
+          activeAudioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
           });
-          micPermissionGranted = true;
-          return true;
         }
+
+        // Web Audio Context to keep audio hardware alive on iOS / Android Chrome
+        if (!audioCtx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            audioCtx = new AudioContext();
+            const source = audioCtx.createMediaStreamSource(activeAudioStream);
+            analyserNode = audioCtx.createAnalyser();
+            analyserNode.fftSize = 64;
+            source.connect(analyserNode);
+
+            // Audio Visualizer loop for smartphone mic test
+            els.micVolContainer.classList.remove("hidden");
+            const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+            const drawVol = () => {
+              if (!isRecognizing && !userWantedSTT) return;
+              analyserNode.getByteFrequencyData(dataArray);
+              let sum = 0;
+              for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+              const avg = sum / dataArray.length;
+              const pct = Math.min(100, Math.max(0, (avg / 128) * 100));
+              els.micVolBar.style.width = `${pct}%`;
+              micAnimFrame = requestAnimationFrame(drawVol);
+            };
+            drawVol();
+          }
+        } else if (audioCtx.state === "suspended") {
+          await audioCtx.resume();
+        }
+
+        micPermissionGranted = true;
         return true;
       } catch (err) {
-        console.warn("Mic permission error:", err);
+        console.warn("Audio KeepAlive / Mic error:", err);
         micPermissionGranted = false;
-        showToast("마이크 사용 권한이 필요합니다. 주소창 좌측 🔒(설정)에서 마이크 권한을 [허용]으로 변경해주세요.", false);
+        showToast("마이크 권한 허용이 필요합니다. 주소창 🔒 설정에서 마이크를 [허용]으로 변경하세요.", false);
         return false;
       }
     }
@@ -744,21 +743,24 @@ Korean: "${text}"`;
 
       rec.onstart = () => {
         isRecognizing = true;
-        setMicStatus("실시간 라이브 음성인식 중", "bg-rose-600", true);
+        restartAttempts = 0;
+        setMicStatus("실시간 모바일 라이브 음성인식 중", "bg-rose-600", true);
         els.btnStartSTT.classList.add("hidden");
+        els.btnResumeSTT.classList.add("hidden");
         els.btnStopSTT.classList.remove("hidden");
       };
 
       rec.onerror = (event) => {
         const err = event.error;
-        if (err === "aborted" || err === "no-speech" || err === "network") {
-          if (userWantedSTT) scheduleRestartSTT(600);
+        console.warn("SpeechRec error:", err);
+        if (err === "aborted" || err === "no-speech") {
+          if (userWantedSTT) scheduleRestartSTT(400);
           return;
         }
         if (err === "not-allowed" || err === "service-not-allowed") {
           userWantedSTT = false;
           micPermissionGranted = false;
-          showToast("마이크 허용이 거부되었습니다. 스마트폰 상단 🔒 아이콘에서 마이크 권한을 [허용]해주셔야 작동합니다.", false);
+          showToast("스마트폰 마이크 권한이 차단되었습니다. 주소창 좌측 🔒 설정에서 마이크를 '허용'해주세요.", false);
           stopSTT(false);
         } else if (userWantedSTT) {
           scheduleRestartSTT(1000);
@@ -768,11 +770,20 @@ Korean: "${text}"`;
       rec.onend = () => {
         isRecognizing = false;
         if (userWantedSTT) {
-          setMicStatus("음성 재연결 중...", "bg-amber-500", true);
-          scheduleRestartSTT(500);
+          restartAttempts++;
+          if (restartAttempts > 5) {
+            // Mobile browser paused recognition to save battery/bandwidth. Show 1-Tap resume button.
+            setMicStatus("음성대기 (터치하여 재개)", "bg-amber-500");
+            els.btnStopSTT.classList.add("hidden");
+            els.btnResumeSTT.classList.remove("hidden");
+          } else {
+            setMicStatus("음성 연결 유지 중...", "bg-amber-500", true);
+            scheduleRestartSTT(300);
+          }
         } else {
           setMicStatus("마이크 대기", "bg-slate-500");
           els.btnStartSTT.classList.remove("hidden");
+          els.btnResumeSTT.classList.add("hidden");
           els.btnStopSTT.classList.add("hidden");
         }
       };
@@ -804,9 +815,11 @@ Korean: "${text}"`;
 
     async function startSTT() {
       try {
-        const ok = await requestMicPermission();
-        if (!ok) return;
         userWantedSTT = true;
+        restartAttempts = 0;
+        const ok = await startAudioKeepAlive();
+        if (!ok) return;
+
         if (!recognition) recognition = createRecognition();
         safeStartRecognition();
       } catch (err) {
@@ -820,12 +833,12 @@ Korean: "${text}"`;
       try {
         recognition.start();
       } catch (err) {
-        console.warn("Speech recognition start failed:", err);
-        if (userWantedSTT) scheduleRestartSTT(800);
+        console.warn("Speech recognition start attempt failed:", err);
+        if (userWantedSTT) scheduleRestartSTT(600);
       }
     }
 
-    function scheduleRestartSTT(delay = 600) {
+    function scheduleRestartSTT(delay = 500) {
       if (!userWantedSTT) return;
       clearTimeout(restartTimer);
       restartTimer = setTimeout(() => {
@@ -839,18 +852,15 @@ Korean: "${text}"`;
     function stopSTT(show = true) {
       userWantedSTT = false;
       clearTimeout(restartTimer);
+      if (micAnimFrame) cancelAnimationFrame(micAnimFrame);
       try { recognition?.stop(); } catch (_) {}
       isRecognizing = false;
 
-      // Stop persistent active audio stream when user explicitly pauses
-      if (activeAudioStream) {
-        activeAudioStream.getTracks().forEach(track => track.stop());
-        activeAudioStream = null;
-      }
-
       setMicStatus("마이크 대기", "bg-slate-500");
+      els.micVolContainer.classList.add("hidden");
       els.btnStartSTT.classList.remove("hidden");
       els.btnStopSTT.classList.add("hidden");
+      els.btnResumeSTT.classList.add("hidden");
       if (show) showToast("음성인식을 일시 정지했습니다.");
     }
 
@@ -884,7 +894,6 @@ Korean: "${text}"`;
       const saved = await saveLogToFirebase(log);
       if (!saved) {
         lectureLogs.unshift({ ...log, createdAt: { seconds: Math.floor(Date.now() / 1000) } });
-        // 로컬 기록 역시 최대 2개로 유지
         if (lectureLogs.length > 2) {
           lectureLogs = lectureLogs.slice(0, 2);
         }
@@ -892,9 +901,6 @@ Korean: "${text}"`;
       }
     }
 
-    // ===============================================================
-    // 6. Pop-out Window & Floating Subtitles Management
-    // ===============================================================
     function openPopoutWindow() {
       if (popoutWindow && !popoutWindow.closed) {
         popoutWindow.focus();
@@ -981,7 +987,6 @@ Korean: "${text}"`;
       if (data.zh !== undefined) els.floatSubZh.textContent = data.zh;
     }
 
-    // Draggable Floating Panel implementation
     function initDraggablePanel() {
       const panel = els.floatingSubtitleWidget;
       const handle = els.floatingHeader;
@@ -1013,7 +1018,6 @@ Korean: "${text}"`;
         document.removeEventListener("mouseup", onMouseUp);
       }
 
-      // Touch drag for mobile
       handle.addEventListener("touchstart", (e) => {
         if (e.touches.length !== 1) return;
         isDragging = true;
@@ -1043,9 +1047,6 @@ Korean: "${text}"`;
       }
     }
 
-    // ===============================================================
-    // 7. PPT / PPTX & PDF Slide Parsers
-    // ===============================================================
     async function loadPptx(file) {
       if (!window.JSZip) {
         showToast("PPTX 파싱 라이브러리를 불러오지 못했습니다.", false);
@@ -1162,9 +1163,6 @@ Korean: "${text}"`;
       }
     }
 
-    // ===============================================================
-    // 8. UI Renderers: Subtitles, Overlay, Slide Viewer
-    // ===============================================================
     function updateOverlay(data) {
       if (!overlayMode) return;
       const ko = data.ko ?? els.subKo.textContent;
@@ -1182,7 +1180,6 @@ Korean: "${text}"`;
     }
 
     function renderLogs() {
-      // 렌더링 시점에 최대 2개 보장
       if (lectureLogs.length > 2) {
         lectureLogs = lectureLogs.slice(0, 2);
       }
@@ -1250,74 +1247,7 @@ Korean: "${text}"`;
       els.slideBg.style.backgroundImage = s.image ? `url('${s.image}')` : "none";
     }
 
-    // ===============================================================
-    // 9. Gemini AI Assistant Panel Features
-    // ===============================================================
-    async function askGeminiAssistant(promptText) {
-      const chatBox = els.aiChatBox;
-      
-      const userDiv = document.createElement("div");
-      userDiv.className = "bg-slate-900 border border-slate-800 text-slate-200 p-2 rounded-lg text-[11px] self-end";
-      userDiv.textContent = `Q: ${promptText}`;
-      chatBox.appendChild(userDiv);
-
-      const loadingDiv = document.createElement("div");
-      loadingDiv.className = "text-indigo-400 text-[11px] italic flex items-center gap-1.5";
-      loadingDiv.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Gemini AI 답변 생각 중...`;
-      chatBox.appendChild(loadingDiv);
-      chatBox.scrollTop = chatBox.scrollHeight;
-
-      const currentSlideText = slides[currentSlide]?.content || slides[currentSlide]?.title || "Slide content";
-      const recentLogsText = lectureLogs.slice(0, 5).map(l => l.ko).join("\n");
-
-      const systemInstruction = `You are an intelligent academic teaching assistant for Woosong University. 
-Answer questions concisely based on the current lecture slide and speech logs. Provide explanations in Korean.`;
-
-      const fullPrompt = `[Current Slide Content]: ${currentSlideText}
-[Recent Lecture Speech Logs]: ${recentLogsText}
-
-Student Question: ${promptText}`;
-
-      try {
-        const apiKey = ""; // Canvas runtime injection
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-
-        const payload = {
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          systemInstruction: { parts: [{ text: systemInstruction }] }
-        };
-
-        const res = await fetch(apiUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-
-        chatBox.removeChild(loadingDiv);
-        if (!res.ok) throw new Error(`Gemini API error status ${res.status}`);
-        
-        const responseText = await res.text();
-        if (!responseText || !responseText.trim()) throw new Error("Empty response body from Gemini API");
-        
-        const data = JSON.parse(responseText);
-        const aiResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text || "답변을 생성하지 못했습니다.";
-
-        const aiDiv = document.createElement("div");
-        aiDiv.className = "bg-indigo-950/60 border border-indigo-800/60 text-indigo-100 p-2.5 rounded-lg text-xs leading-relaxed space-y-1";
-        aiDiv.innerHTML = `<b class="text-indigo-300 flex items-center gap-1"><i class="fa-solid fa-robot"></i> Gemini AI 조교:</b> ${escapeHtml(aiResponseText).replace(/\n/g, '<br>')}`;
-        chatBox.appendChild(aiDiv);
-        chatBox.scrollTop = chatBox.scrollHeight;
-      } catch (err) {
-        if (chatBox.contains(loadingDiv)) chatBox.removeChild(loadingDiv);
-        showToast("AI 답변 생성 실패", false);
-      }
-    }
-
-    // ===============================================================
-    // 10. Event Listeners & Binding
-    // ===============================================================
     function bindEvents() {
-      // File upload event listener
       if (els.fileInput) {
         els.fileInput.addEventListener("change", (e) => {
           if (e.target.files && e.target.files.length > 0) {
@@ -1327,7 +1257,6 @@ Student Question: ${promptText}`;
         });
       }
 
-      // Drag and drop support on the slide viewer area
       const slideViewport = document.getElementById("slideViewport");
       if (slideViewport) {
         slideViewport.addEventListener("dragover", (e) => {
@@ -1345,9 +1274,9 @@ Student Question: ${promptText}`;
 
       // STT Controls
       els.btnStartSTT.addEventListener("click", startSTT);
+      els.btnResumeSTT.addEventListener("click", startSTT);
       els.btnStopSTT.addEventListener("click", () => stopSTT(true));
 
-      // Test Speech Sample
       els.btnTestTranslate.addEventListener("click", () => {
         const testPhrases = [
           "우송대학교 글로벌 강의 지원 시스템 테스트입니다.",
@@ -1358,14 +1287,12 @@ Student Question: ${promptText}`;
         handleFinalSpeech(randomPhrase);
       });
 
-      // Clear Screen Logs
       els.btnClearLogs.addEventListener("click", () => {
         lectureLogs = [];
         renderLogs();
         showToast("화면의 강의 로그를 초기화했습니다.");
       });
 
-      // Export Buttons
       els.btnExportTxt.addEventListener("click", () => {
         if (!lectureLogs.length) return showToast("저장할 기록이 없습니다.", false);
         const txt = lectureLogs.map((l, i) => `[${l.localTime || ''}] #${lectureLogs.length - i}\nKO: ${l.ko}\nEN: ${l.en}\nVI: ${l.vi}\nZH: ${l.zh}\n`).join("\n---\n");
@@ -1385,7 +1312,6 @@ Student Question: ${promptText}`;
         a.click();
       });
 
-      // Slide Navigation Controls
       els.btnPrevSlide.addEventListener("click", () => {
         if (currentSlide > 0) {
           currentSlide--;
@@ -1399,7 +1325,6 @@ Student Question: ${promptText}`;
         }
       });
 
-      // Fullscreen Toggle
       els.btnFullScreen.addEventListener("click", async () => {
         const vp = $("slideViewport");
         try {
@@ -1417,16 +1342,14 @@ Student Question: ${promptText}`;
             }
           }
         } catch (err) {
-          console.warn("Fullscreen permission/policy error:", err);
+          console.warn("Fullscreen error:", err);
           showToast("전체화면 기능이 브라우저 보안 정책에 의해 제한되었습니다.", false);
         }
       });
 
-      // Separate Popout Window Events
       els.btnPopout.addEventListener("click", openPopoutWindow);
       els.btnPopoutHeader.addEventListener("click", openPopoutWindow);
 
-      // Layout Toggles
       els.btnLayoutBottom.addEventListener("click", () => {
         overlayMode = false;
         floatingMode = false;
@@ -1470,7 +1393,6 @@ Student Question: ${promptText}`;
         els.btnLayoutBottom.click();
       });
 
-      // Font Resizing
       els.btnFontInc.addEventListener("click", () => {
         if (fontSize < 28) {
           fontSize += 2;
@@ -1486,14 +1408,12 @@ Student Question: ${promptText}`;
         }
       });
 
-      // Engine Toggle
       els.btnToggleEngine.addEventListener("click", () => {
         useGeminiAI = !useGeminiAI;
-        els.engineLabel.textContent = useGeminiAI ? "Gemini AI" : "Google Free";
-        showToast(useGeminiAI ? "Gemini AI 번역 모드 활성화" : "무료 Google 번역 모드 활성화");
+        els.engineLabel.textContent = useGeminiAI ? "Gemini AI" : "다중 번역 백엔드";
+        showToast(useGeminiAI ? "Gemini AI 번역 전환" : "다중 자동 백엔드 번역 전환");
       });
 
-      // Tabs
       els.tabArchiveBtn.addEventListener("click", () => {
         els.tabArchiveBtn.className = "flex-1 py-1.5 text-xs font-bold text-rose-400 border-b-2 border-rose-500 text-center transition";
         els.tabAiBtn.className = "flex-1 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-200 border-b-2 border-transparent text-center transition";
@@ -1507,30 +1427,9 @@ Student Question: ${promptText}`;
         els.tabAiContent.classList.remove("hidden");
         els.tabArchiveContent.classList.add("hidden");
       });
-
-      // Gemini AI Assistant Input Actions
-      els.btnAiSend.addEventListener("click", () => {
-        const q = els.aiInput.value.trim();
-        if (q) {
-          askGeminiAssistant(q);
-          els.aiInput.value = "";
-        }
-      });
-      els.aiInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") els.btnAiSend.click();
-      });
-
-      els.btnAiSummarize.addEventListener("click", () => {
-        askGeminiAssistant("현재 슬라이드의 내용을 학생이 이해하기 쉽게 3문장으로 요약해줘.");
-      });
-
-      els.btnAiVocab.addEventListener("click", () => {
-        askGeminiAssistant("현재 강의와 슬라이드에서 가장 중요한 학술 전문 어휘 3개와 각각의 영어/한국어 뜻을 추출해줘.");
-      });
     }
 
     window.addEventListener("DOMContentLoaded", () => {
-      // Prevent unhandled rejection crashes from Permissions Policy constraints
       window.addEventListener("unhandledrejection", (event) => {
         console.warn("Unhandled Promise Rejection caught:", event.reason);
         const reasonStr = String(event.reason || "");
@@ -1540,7 +1439,7 @@ Student Question: ${promptText}`;
           reasonStr.includes("permissions policy") ||
           reasonStr.includes("Disallowed")
         ) {
-          showToast("브라우저 권한 정책으로 해당 기능이 제한되었습니다.", false);
+          showToast("스마트폰 설정에서 마이크 사용을 허용해 주세요.", false);
           event.preventDefault();
         }
       });
