@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+
 <html lang="ko" class="dark">
 <head>
   <meta charset="UTF-8" />
@@ -146,7 +146,7 @@
             <!-- Upload files (PDF, PPTX, Images) -->
             <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 transition">
               <i class="fa-solid fa-file-arrow-up text-rose-400"></i>
-              <span>교안 업로드 (PDF/PPT/이미지)</span>
+              <span>교안 업로드 (PDF/PPTX/이미지)</span>
               <input id="fileInput" type="file" accept=".pdf,.ppt,.pptx,image/*" multiple class="hidden" />
             </label>
 
@@ -165,49 +165,12 @@
         <!-- Slide Viewport Content -->
         <div id="slideViewport" class="relative flex-1 bg-slate-950 flex items-center justify-center overflow-hidden p-2 md:p-4 min-h-[300px]">
           <!-- Background image layer for default slides -->
-          <div id="slideBg" class="absolute inset-0 bg-cover bg-center opacity-20 transition-all duration-500"></div>
-          <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20"></div>
+          <div id="slideBg" class="absolute inset-0 bg-cover bg-center opacity-10 transition-all duration-500"></div>
 
-          <!-- Structured 16:9 PowerPoint Slide Frame -->
-          <div id="textSlide" class="relative z-10 w-full max-w-4xl aspect-[16/9] bg-slate-900/90 border border-slate-700/80 rounded-2xl shadow-2xl p-4 md:p-8 flex flex-col justify-between backdrop-blur-xl overflow-hidden my-auto">
-            
-            <!-- Slide Header Area -->
-            <div class="border-b border-slate-800 pb-3 mb-3 flex items-start justify-between gap-3 shrink-0">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
-                  <i class="fa-solid fa-file-powerpoint text-base"></i>
-                </div>
-                <div>
-                  <h2 id="slideTitle" class="text-base md:text-2xl font-black text-white tracking-tight leading-snug">
-                    우송대학교 다국어 강의 지원 시스템
-                  </h2>
-                  <span id="slideSubBadge" class="text-[10px] text-rose-400 font-semibold tracking-wide uppercase">PowerPoint Slide Layout</span>
-                </div>
-              </div>
-              <span id="slideNumberTag" class="text-xs bg-slate-800 border border-slate-700 text-slate-300 font-bold px-2.5 py-1 rounded-full shrink-0">
-                SLIDE #1
-              </span>
-            </div>
-
-            <!-- Slide Content Presentation Body -->
-            <div id="slideContent" class="flex-1 overflow-y-auto space-y-3 text-slate-200 text-xs md:text-sm leading-relaxed touch-scroll pr-1">
-              교안 파일(PDF, PPT, PPTX, 이미지)을 올려 실시간으로 강의와 연동할 수 있습니다.
-              교수님이 한국어로 강의하면 영어·베트남어·중국어 자막이 즉시 생성됩니다.
-            </div>
-
-            <!-- Slide Footer Bar -->
-            <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 shrink-0 mt-2">
-              <span class="flex items-center gap-1.5 font-medium text-slate-400">
-                <i class="fa-solid fa-graduation-cap text-rose-500"></i> Woosong University Global Lecture
-              </span>
-              <span class="text-[10px] bg-slate-800/80 px-2 py-0.5 rounded text-slate-400">
-                💡 TIP: PPTX를 PDF로 저장 후 업로드하시면 100% 원본 레이아웃 그래픽으로 표시됩니다
-              </span>
-            </div>
+          <!-- Canvas / Image / PDF / PPT Direct Render Layer -->
+          <div id="renderLayer" class="w-full h-full flex items-center justify-center overflow-auto touch-scroll relative z-10 p-1">
+            <!-- PPT, PDF, Image files will render cleanly here -->
           </div>
-
-          <!-- Canvas / Image / PDF Render Layer -->
-          <div id="renderLayer" class="absolute inset-0 hidden z-10 bg-slate-950 flex items-center justify-center p-2 overflow-auto touch-scroll"></div>
 
           <!-- Slide Overlay Subtitle Panel -->
           <div id="overlaySubtitlePanel" class="absolute bottom-0 left-0 right-0 hidden z-20 bg-slate-950/95 backdrop-blur-md border-t border-slate-800/90 p-3 md:p-4 text-white shadow-2xl">
@@ -518,7 +481,7 @@
       {
         type: "text",
         title: "우송대학교 다국어 글로벌 강의 지원 시스템",
-        content: "교안 파일(PDF, PPT, PPTX, 이미지)을 올려 강의 화면에 실시간으로 표시할 수 있습니다.\n마이크 시작 후 한국어로 말하면 영어·베트남어·중국어 자막이 즉시 생성됩니다.",
+        content: "교안 파일(PDF, PPTX, 이미지)을 올려 강의 화면에 실시간으로 표시할 수 있습니다.\n마이크 시작 후 한국어로 말하면 영어·베트남어·중국어 자막이 즉시 생성됩니다.",
         image: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1400&q=80"
       },
       {
@@ -579,12 +542,6 @@
     const floatSubZh = document.getElementById('floatSubZh');
     const btnCloseFloating = document.getElementById('btnCloseFloating');
 
-    const slideTitle = document.getElementById('slideTitle');
-    const slideContent = document.getElementById('slideContent');
-    const slideSubBadge = document.getElementById('slideSubBadge');
-    const slideNumberTag = document.getElementById('slideNumberTag');
-    const slideBg = document.getElementById('slideBg');
-    const textSlide = document.getElementById('textSlide');
     const renderLayer = document.getElementById('renderLayer');
     const currentSlideIndex = document.getElementById('currentSlideIndex');
     const totalSlidesCount = document.getElementById('totalSlidesCount');
@@ -868,9 +825,7 @@
       if (popoutWindow && !popoutWindow.closed && popoutWindow.document) {
         const popEl = popoutWindow.document.getElementById(`pop-${lang}`);
         if (popEl) {
-          if (lang === 'vi') popEl.textContent = `VI: ${text}`;
-          else if (lang === 'zh') popEl.textContent = `ZH: ${text}`;
-          else popEl.textContent = text;
+          popEl.textContent = text;
         }
       }
     }
@@ -946,7 +901,17 @@
     }
 
     function renderSlide() {
-      if (!slides || slides.length === 0) return;
+      if (!slides || slides.length === 0) {
+        if (renderLayer) {
+          renderLayer.innerHTML = `
+            <div class="flex flex-col items-center justify-center text-center p-6 text-slate-500">
+              <i class="fa-solid fa-file-arrow-up text-4xl mb-3 text-slate-600"></i>
+              <p class="text-xs font-semibold text-slate-400">PDF, PPTX, 이미지 교안을 업로드해 주세요</p>
+            </div>`;
+        }
+        return;
+      }
+
       if (currentSlide < 0) currentSlide = 0;
       if (currentSlide >= slides.length) currentSlide = slides.length - 1;
 
@@ -954,21 +919,18 @@
 
       if (currentSlideIndex) currentSlideIndex.textContent = currentSlide + 1;
       if (totalSlidesCount) totalSlidesCount.textContent = slides.length;
-      if (slideNumberTag) slideNumberTag.textContent = `SLIDE #${currentSlide + 1}`;
 
-      if (!textSlide || !renderLayer) return;
+      if (!renderLayer) return;
+      renderLayer.innerHTML = '';
 
       if (slide.type === "image" || slide.type === "pdf" || slide.type === "canvas") {
-        textSlide.classList.add('hidden');
-        renderLayer.classList.remove('hidden');
-        renderLayer.innerHTML = '';
-
         if (slide.element) {
           const clonedNode = slide.element.cloneNode(true);
           if (slide.element.tagName === 'CANVAS') {
             const ctx = clonedNode.getContext('2d');
             ctx.drawImage(slide.element, 0, 0);
           }
+          clonedNode.className = 'max-h-full max-w-full object-contain rounded-xl shadow-2xl';
           renderLayer.appendChild(clonedNode);
         } else if (slide.imageUrl) {
           const img = document.createElement('img');
@@ -978,71 +940,57 @@
         }
         if (slideTypeBadge) slideTypeBadge.textContent = (slide.type === "pdf" ? "PDF 교안" : slide.type === "image" ? "이미지 교안" : "교안 파일");
       } else {
-        renderLayer.classList.add('hidden');
-        renderLayer.innerHTML = '';
-        textSlide.classList.remove('hidden');
+        // Structured text/images PPTX rendering frame
+        const container = document.createElement('div');
+        container.className = 'w-full max-w-4xl h-full flex flex-col justify-center p-6 bg-slate-900/90 border border-slate-800/80 rounded-2xl shadow-2xl overflow-y-auto backdrop-blur-xl touch-scroll';
+        
+        let contentHtml = '';
+        if (slide.title) {
+          contentHtml += `<h2 class="text-base md:text-lg font-black text-rose-400 mb-4 pb-2 border-b border-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-file-powerpoint text-rose-500"></i>
+            <span>${escapeHtml(slide.title)}</span>
+          </h2>`;
+        }
 
-        if (slideTitle) slideTitle.textContent = slide.title || `슬라이드 ${currentSlide + 1}`;
-        if (slideSubBadge) slideSubBadge.textContent = slide.typeBadge || "PowerPoint Slide Layout";
-
-        if (slideContent) {
-          if (slide.paragraphs && slide.paragraphs.length > 0) {
-            let html = '<div class="space-y-2.5">';
-            slide.paragraphs.forEach(p => {
-              if (p.isBullet) {
-                html += `
-                  <div class="flex items-start gap-2.5 pl-2">
-                    <span class="w-2 h-2 rounded-full bg-rose-500 mt-1.5 shrink-0 shadow-sm shadow-rose-500/50"></span>
-                    <p class="text-slate-100 font-medium">${escapeHtml(p.text)}</p>
-                  </div>`;
-              } else {
-                html += `<p class="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl text-slate-200 font-normal leading-relaxed">${escapeHtml(p.text)}</p>`;
-              }
-            });
-
-            if (slide.images && slide.images.length > 0) {
-              html += '<div class="grid grid-cols-2 gap-2 pt-2">';
-              slide.images.forEach(imgUrl => {
-                html += `<img src="${imgUrl}" class="max-h-40 w-full object-cover rounded-xl border border-slate-700 shadow-md" />`;
-              });
-              html += '</div>';
-            }
-            html += '</div>';
-            slideContent.innerHTML = html;
-          } else {
-            const lines = (slide.content || "").split('\n').filter(l => l.trim().length > 0);
-            if (lines.length > 0) {
-              let html = '<div class="space-y-2">';
-              lines.forEach(line => {
-                const isBullet = line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || /^\d+\./.test(line);
-                const cleanLine = line.replace(/^[•\-\*\d\.]+\s*/, '');
-                if (isBullet) {
-                  html += `
-                    <div class="flex items-start gap-2.5 pl-2">
-                      <span class="w-2 h-2 rounded-full bg-rose-500 mt-1.5 shrink-0"></span>
-                      <p class="text-slate-100 font-medium">${escapeHtml(cleanLine)}</p>
-                    </div>`;
-                } else {
-                  html += `<p class="bg-slate-950/50 border border-slate-800/80 p-2.5 rounded-xl text-slate-200 leading-relaxed">${escapeHtml(line)}</p>`;
-                }
-              });
-              html += '</div>';
-              slideContent.innerHTML = html;
+        if (slide.paragraphs && slide.paragraphs.length > 0) {
+          contentHtml += '<div class="space-y-3 text-slate-100 text-sm leading-relaxed">';
+          slide.paragraphs.forEach(p => {
+            const trimmed = (p.text || '').trim();
+            if (/^\d+$/.test(trimmed) || /^(page|pg|페이지)\s*\d+$/i.test(trimmed)) return;
+            if (p.isBullet) {
+              contentHtml += `
+                <div class="flex items-start gap-2.5 pl-2">
+                  <span class="w-2 h-2 rounded-full bg-rose-500 mt-2 shrink-0"></span>
+                  <p class="text-slate-100 font-medium">${escapeHtml(p.text)}</p>
+                </div>`;
             } else {
-              slideContent.textContent = slide.content || '';
+              contentHtml += `<p class="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl text-slate-100">${escapeHtml(p.text)}</p>`;
             }
+          });
+
+          if (slide.images && slide.images.length > 0) {
+            contentHtml += '<div class="grid grid-cols-2 gap-3 pt-3">';
+            slide.images.forEach(imgUrl => {
+              contentHtml += `<img src="${imgUrl}" class="max-h-56 w-full object-contain rounded-xl border border-slate-800 shadow-md" />`;
+            });
+            contentHtml += '</div>';
           }
+          contentHtml += '</div>';
+        } else {
+          const lines = (slide.content || "").split('\n').filter(l => l.trim().length > 0);
+          contentHtml += '<div class="space-y-3 text-slate-100 text-sm leading-relaxed">';
+          lines.forEach(line => {
+            const cleanLine = line.replace(/^[•\-\*\d\.]+\s*/, '').trim();
+            if (/^\d+$/.test(cleanLine) || /^(page|pg|페이지)\s*\d+$/i.test(cleanLine)) return;
+            contentHtml += `<p class="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl text-slate-100 font-medium">${escapeHtml(cleanLine)}</p>`;
+          });
+          contentHtml += '</div>';
         }
 
-        if (slideBg) {
-          if (slide.image) {
-            slideBg.style.backgroundImage = `url('${slide.image}')`;
-            slideBg.style.opacity = '0.35';
-          } else {
-            slideBg.style.backgroundImage = 'none';
-          }
-        }
-        if (slideTypeBadge) slideTypeBadge.textContent = slide.typeBadge || "PowerPoint 교안";
+        container.innerHTML = contentHtml;
+        renderLayer.appendChild(container);
+
+        if (slideTypeBadge) slideTypeBadge.textContent = slide.typeBadge || "PPTX 교안";
       }
     }
     window.renderSlide = renderSlide;
@@ -1051,17 +999,20 @@
       const slidesList = [];
       try {
         if (typeof JSZip === 'undefined') {
-          throw new Error("JSZip 라이브러리가 필요합니다.");
+          throw new Error("JSZip 라이브러리가 로드되지 않았습니다.");
         }
+
         const zip = await JSZip.loadAsync(file);
-        
         const slideFiles = [];
-        zip.folder("ppt/slides").forEach((relativePath, zipEntry) => {
-          const match = relativePath.match(/^slide(\d+)\.xml$/i);
+
+        // Safe ZIP iteration for slide XML files
+        zip.forEach((relativePath, zipEntry) => {
+          const match = relativePath.match(/^ppt\/slides\/slide(\d+)\.xml$/i);
           if (match) {
             slideFiles.push({
               num: parseInt(match[1], 10),
-              path: zipEntry.name
+              path: relativePath,
+              zipEntry: zipEntry
             });
           }
         });
@@ -1072,15 +1023,22 @@
 
         const parser = new DOMParser();
 
+        const isPageNumber = (str) => {
+          if (!str) return true;
+          const trimmed = str.trim();
+          return /^\d+$/.test(trimmed) || /^\d+\s*[\/\.-]\s*\d+$/.test(trimmed) || /^(page|pg|페이지)\s*\d+$/i.test(trimmed);
+        };
+
         for (let i = 0; i < slideFiles.length; i++) {
           const slideEntry = slideFiles[i];
           const xmlText = await zip.file(slideEntry.path).async("text");
           const xmlDoc = parser.parseFromString(xmlText, "text/xml");
 
-          const paragraphNodes = xmlDoc.getElementsByTagName("a:p");
           const paragraphs = [];
           let slideTitle = "";
 
+          // Extract text from shapes, tables, and group shapes
+          const paragraphNodes = xmlDoc.getElementsByTagName("a:p");
           for (let pIdx = 0; pIdx < paragraphNodes.length; pIdx++) {
             const pNode = paragraphNodes[pIdx];
             const textNodes = pNode.getElementsByTagName("a:t");
@@ -1089,44 +1047,64 @@
               pText += textNodes[tIdx].textContent || "";
             }
             pText = pText.trim();
-            if (pText) {
-              if (!slideTitle && pIdx === 0) {
-                slideTitle = pText;
-              } else {
-                const pPr = pNode.getElementsByTagName("a:pPr")[0];
-                const isBullet = pPr ? (pPr.getElementsByTagName("a:buChar").length > 0 || pPr.getAttribute("lvl") !== null) : false;
-                paragraphs.push({
-                  text: pText,
-                  isBullet: isBullet || pText.startsWith("•") || pText.startsWith("-")
-                });
+
+            if (!pText || isPageNumber(pText)) continue;
+
+            // Check if paragraph belongs to title shape
+            const parentShape = pNode.closest ? pNode.closest("sp") || pNode.closest("p\\:sp") : null;
+            let isTitleShape = false;
+            if (parentShape) {
+              const phNode = parentShape.getElementsByTagName("p:ph")[0] || parentShape.getElementsByTagName("ph")[0];
+              if (phNode) {
+                const phType = phNode.getAttribute("type");
+                if (phType === "title" || phType === "ctrTitle" || phType === "subTitle") {
+                  isTitleShape = true;
+                }
               }
+            }
+
+            if (isTitleShape || !slideTitle) {
+              slideTitle = pText;
+            } else {
+              const pPr = pNode.getElementsByTagName("a:pPr")[0];
+              const isBullet = pPr ? (pPr.getElementsByTagName("a:buChar").length > 0 || pPr.getAttribute("lvl") !== null) : false;
+              paragraphs.push({
+                text: pText,
+                isBullet: isBullet || pText.startsWith("•") || pText.startsWith("-")
+              });
             }
           }
 
           if (!slideTitle) {
-            slideTitle = `${file.name} (Slide ${slideEntry.num})`;
+            slideTitle = `${file.name.replace(/\.[^/.]+$/, "")} (Slide ${slideEntry.num})`;
           }
 
-          const relsPath = `ppt/slides/_rels/slide${slideEntry.num}.xml.rels`;
+          // Extract slide embedded images via relationship XML
+          const slideFileName = slideEntry.path.split('/').pop();
+          const relsPath = `ppt/slides/_rels/${slideFileName}.rels`;
           const slideImages = [];
 
           const relsFile = zip.file(relsPath);
           if (relsFile) {
-            const relsXmlText = await relsFile.async("text");
-            const relsDoc = parser.parseFromString(relsXmlText, "text/xml");
-            const relNodes = relsDoc.getElementsByTagName("Relationship");
+            try {
+              const relsXmlText = await relsFile.async("text");
+              const relsDoc = parser.parseFromString(relsXmlText, "text/xml");
+              const relNodes = relsDoc.getElementsByTagName("Relationship");
 
-            for (let k = 0; k < relNodes.length; k++) {
-              const target = relNodes[k].getAttribute("Target");
-              if (target && target.includes("media/")) {
-                const mediaFileName = target.split('/').pop();
-                const mediaZipPath = `ppt/media/${mediaFileName}`;
-                const mediaFile = zip.file(mediaZipPath);
-                if (mediaFile) {
-                  const imageBlob = await mediaFile.async("blob");
-                  slideImages.push(URL.createObjectURL(imageBlob));
+              for (let k = 0; k < relNodes.length; k++) {
+                const target = relNodes[k].getAttribute("Target");
+                if (target && target.includes("media/")) {
+                  const mediaFileName = target.split('/').pop();
+                  const mediaZipPath = `ppt/media/${mediaFileName}`;
+                  const mediaFile = zip.file(mediaZipPath);
+                  if (mediaFile) {
+                    const imageBlob = await mediaFile.async("blob");
+                    slideImages.push(URL.createObjectURL(imageBlob));
+                  }
                 }
               }
+            } catch (relsErr) {
+              console.warn("PPTX image rels parse notice:", relsErr);
             }
           }
 
@@ -1153,16 +1131,16 @@
         const newSlides = [];
 
         for (const file of files) {
-          const fileNameLower = file.name.toLowerCase();
-          if (file.type.startsWith('image/')) {
-            const imageUrl = URL.createObjectURL(file);
-            newSlides.push({
-              type: "image",
-              imageUrl: imageUrl,
-              title: file.name
-            });
-          } else if (file.type === 'application/pdf' || fileNameLower.endsWith('.pdf')) {
-            try {
+          try {
+            const fileNameLower = file.name.toLowerCase();
+            if (file.type.startsWith('image/')) {
+              const imageUrl = URL.createObjectURL(file);
+              newSlides.push({
+                type: "image",
+                imageUrl: imageUrl,
+                title: file.name
+              });
+            } else if (file.type === 'application/pdf' || fileNameLower.endsWith('.pdf')) {
               if (typeof pdfjsLib !== 'undefined') {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
                 const arrayBuffer = await file.arrayBuffer();
@@ -1186,36 +1164,36 @@
                   });
                 }
               }
-            } catch (pdfErr) {
-              console.error("PDF Parsing error:", pdfErr);
-              showToast("PDF 파일을 읽는 중 오류가 발생했습니다.", true);
-            }
-          } else if (fileNameLower.endsWith('.pptx')) {
-            const parsedPptx = await parsePPTXFile(file);
-            if (parsedPptx && parsedPptx.length > 0) {
-              newSlides.push(...parsedPptx);
+            } else if (fileNameLower.endsWith('.pptx')) {
+              const parsedPptx = await parsePPTXFile(file);
+              if (parsedPptx && parsedPptx.length > 0) {
+                newSlides.push(...parsedPptx);
+              } else {
+                newSlides.push({
+                  type: "text",
+                  title: file.name,
+                  content: `PPTX 슬라이드 파싱 결과를 가져올 수 없습니다.\n파일: ${file.name}\n\n* 교안 업로드 팁: 파워포인트에서 [다른 이름으로 저장] -> [.pptx] 또는 [PDF] 형식으로 다시 저장하신 후 업로드하시면 모든 이미지와 글꼴이 더욱 정밀하게 보존됩니다.`,
+                  typeBadge: "PPTX 교안"
+                });
+              }
+            } else if (fileNameLower.endsWith('.ppt')) {
+              newSlides.push({
+                type: "text",
+                title: file.name,
+                content: `구버전 .ppt 파일: ${file.name}\n\n* 안내: 구형 .ppt 파일은 바이너리 구조로 되어있어 원활한 웹 렌더링을 위해 최신 .pptx 또는 PDF 파일로 변환하여 업로드해 주시기 바랍니다.`,
+                typeBadge: "PPT 교안 (변환 추천)"
+              });
             } else {
               newSlides.push({
                 type: "text",
                 title: file.name,
-                content: `PPTX 슬라이드 파싱 결과를 가져올 수 없습니다.\n파일: ${file.name}`,
-                typeBadge: "PPTX 교안"
+                content: `업로드된 교안: ${file.name}\n용량: ${(file.size / 1024).toFixed(1)} KB`,
+                typeBadge: "업로드 교안"
               });
             }
-          } else if (fileNameLower.endsWith('.ppt')) {
-            newSlides.push({
-              type: "text",
-              title: file.name,
-              content: `구버전 PPT 파일: ${file.name}\n\n* 안내: 구형 .ppt 형식보다 최신 .pptx 형식 또는 PDF 파일로 저장 후 업로드하시면 각 슬라이드별 텍스트 및 이미지 교안이 자동으로 추출 및 분리됩니다.`,
-              typeBadge: "PPT 교안"
-            });
-          } else {
-            newSlides.push({
-              type: "text",
-              title: file.name,
-              content: `업로드된 교안: ${file.name}\n용량: ${(file.size / 1024).toFixed(1)} KB`,
-              typeBadge: "업로드 교안"
-            });
+          } catch (fileErr) {
+            console.error("File processing error:", fileErr);
+            showToast(`${file.name} 파일을 읽는 중 오류가 발생했습니다.`, true);
           }
         }
 
@@ -1224,11 +1202,102 @@
           currentSlide = 0;
           renderSlide();
           showToast(`총 ${slides.length}개의 슬라이드 교안이 구성되었습니다!`);
+        } else {
+          showToast("슬라이드를 추출하지 못했습니다. PDF 또는 PPTX 파일 형태를 확인해 주세요.", true);
         }
       });
     }
 
     async function openPopoutWindow() {
+      const getPopoutHTML = (currentKo, currentEn, currentVi, currentZh) => `
+        <!DOCTYPE html>
+        <html class="dark">
+        <head>
+          <meta charset="UTF-8">
+          <title>실시간 다국어 번역 자막 (분리창)</title>
+          <script src="https://cdn.tailwindcss.com"><\/script>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+          <style>
+            body { font-family: 'Noto Sans KR', sans-serif; background-color: #020617; color: #f8fafc; margin: 0; padding: 12px; height: 100vh; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+            ::-webkit-scrollbar { width: 5px; height: 5px; }
+            ::-webkit-scrollbar-track { background: #090d16; }
+            ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+          </style>
+        </head>
+        <body class="bg-slate-950 text-slate-100">
+          <!-- Header Bar -->
+          <header class="flex justify-between items-center border-b border-slate-800/80 pb-2.5 mb-2.5 shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-rose-600 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-rose-600/30">
+                <i class="fa-solid fa-closed-captioning"></i>
+              </span>
+              <h1 class="font-extrabold text-sm md:text-base text-white tracking-tight">실시간 다국어 번역 자막</h1>
+              <span class="text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full font-bold">LIVE</span>
+            </div>
+            
+            <div class="flex items-center gap-1.5 text-xs">
+              <button id="popFontDec" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md font-semibold border border-slate-700 transition">-A</button>
+              <span id="popFontSizeLabel" class="text-xs text-slate-300 font-mono font-bold px-1.5">16px</span>
+              <button id="popFontInc" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md font-semibold border border-slate-700 transition">+A</button>
+            </div>
+          </header>
+
+          <!-- 2x2 Grid Subtitle Display Cards -->
+          <main class="grid grid-cols-2 gap-3 flex-1 min-h-0">
+            <!-- Korean Original Card -->
+            <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 flex flex-col shadow-xl min-h-0">
+              <div class="flex justify-between items-center border-b border-slate-800/80 pb-2 mb-2 shrink-0">
+                <b class="text-slate-200 text-xs flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-slate-400"></span> 한국어 (Original)
+                </b>
+                <span class="text-[11px] text-slate-500 font-bold">KO</span>
+              </div>
+              <div id="pop-ko" class="pop-sub-text flex-1 overflow-y-auto text-slate-100 font-semibold leading-relaxed pr-1" style="font-size:16px;">${escapeHtml(currentKo)}</div>
+            </div>
+
+            <!-- English Card -->
+            <div class="bg-slate-900/90 border border-blue-900/50 rounded-2xl p-3.5 flex flex-col shadow-xl min-h-0">
+              <div class="flex justify-between items-center border-b border-slate-800/80 pb-2 mb-2 shrink-0">
+                <b class="text-blue-400 text-xs flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-blue-400"></span> English
+                </b>
+                <span class="text-[11px] text-blue-500 font-bold">EN</span>
+              </div>
+              <div id="pop-en" class="pop-sub-text flex-1 overflow-y-auto text-blue-100 font-semibold leading-relaxed pr-1" style="font-size:16px;">${escapeHtml(currentEn)}</div>
+            </div>
+
+            <!-- Vietnamese Card -->
+            <div class="bg-slate-900/90 border border-amber-900/50 rounded-2xl p-3.5 flex flex-col shadow-xl min-h-0">
+              <div class="flex justify-between items-center border-b border-slate-800/80 pb-2 mb-2 shrink-0">
+                <b class="text-amber-400 text-xs flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-amber-400"></span> Tiếng Việt
+                </b>
+                <span class="text-[11px] text-amber-500 font-bold">VI</span>
+              </div>
+              <div id="pop-vi" class="pop-sub-text flex-1 overflow-y-auto text-amber-100 font-semibold leading-relaxed pr-1" style="font-size:16px;">${escapeHtml(currentVi)}</div>
+            </div>
+
+            <!-- Chinese Card -->
+            <div class="bg-slate-900/90 border border-red-900/50 rounded-2xl p-3.5 flex flex-col shadow-xl min-h-0">
+              <div class="flex justify-between items-center border-b border-slate-800/80 pb-2 mb-2 shrink-0">
+                <b class="text-red-400 text-xs flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-red-400"></span> 中文 (简体)
+                </b>
+                <span class="text-[11px] text-red-500 font-bold">ZH</span>
+              </div>
+              <div id="pop-zh" class="pop-sub-text flex-1 overflow-y-auto text-red-100 font-semibold leading-relaxed pr-1" style="font-size:16px;">${escapeHtml(currentZh)}</div>
+            </div>
+          </main>
+        </body>
+        </html>
+      `;
+
+      const curKo = subKo ? subKo.textContent : "";
+      const curEn = subEn ? subEn.textContent : "";
+      const curVi = subVi ? subVi.textContent : "";
+      const curZh = subZh ? subZh.textContent : "";
+
       if ('documentPictureInPicture' in window) {
         try {
           if (popoutWindow && !popoutWindow.closed) {
@@ -1236,97 +1305,38 @@
           }
 
           popoutWindow = await window.documentPictureInPicture.requestWindow({
-            width: 980,
-            height: 180
+            width: 840,
+            height: 480
           });
 
           const pipDoc = popoutWindow.document;
+          pipDoc.open();
+          pipDoc.write(getPopoutHTML(curKo, curEn, curVi, curZh));
+          pipDoc.close();
 
-          pipDoc.head.innerHTML = `
-            <meta charset="UTF-8">
-            <title>PPT 최상단 고정 실시간 자막창</title>
-            <script src="https://cdn.tailwindcss.com"><\/script>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-            <style>
-              body {
-                font-family: 'Noto Sans KR', -apple-system, sans-serif;
-                background-color: rgba(2, 6, 23, 0.94);
-                color: #ffffff;
-                margin: 0;
-                padding: 10px 14px;
-                overflow: hidden;
-                user-select: none;
-              }
-              .glow-text { text-shadow: 0 0 10px rgba(0,0,0,0.9), 0 0 18px rgba(244, 63, 94, 0.5); }
-            </style>
-          `;
-
-          pipDoc.body.innerHTML = `
-            <div id="pipContainer" class="flex flex-col h-full justify-between">
-              <div class="flex justify-between items-center pb-1 border-b border-slate-800/80 text-[11px]">
-                <div class="flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                  <span class="font-black text-rose-400 tracking-tight">PPT 최상단 고정 실시간 자막 (Always-On-Top)</span>
-                  <span class="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold">PPT 발표화면 고정중</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <button id="pipCompactBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-700">
-                    <i class="fa-solid fa-compress mr-1"></i>한 줄 콤팩트
-                  </button>
-                  <button id="pipFontDec" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-700">-A</button>
-                  <button id="pipFontInc" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-700">+A</button>
-                </div>
-              </div>
-
-              <div id="pipSubMain" class="my-auto py-1 space-y-1">
-                <p id="pop-ko" class="text-base md:text-xl font-black text-white leading-tight glow-text">${subKo.textContent}</p>
-                <p id="pop-en" class="text-xs md:text-sm font-bold text-blue-300 leading-tight">${subEn.textContent}</p>
-                <div id="pipMultiLang" class="flex gap-4 text-xs font-semibold text-slate-300 pt-0.5">
-                  <span id="pop-vi" class="text-amber-300">VI: ${subVi.textContent}</span>
-                  <span id="pop-zh" class="text-red-300">ZH: ${subZh.textContent}</span>
-                </div>
-              </div>
-            </div>
-          `;
-
-          let isCompact = false;
-          let pipFontSize = 18;
-
-          const updatePipFontSize = () => {
-            const koEl = pipDoc.getElementById('pop-ko');
-            if (koEl) koEl.style.fontSize = `${pipFontSize}px`;
+          let popFontSize = 16;
+          const updatePopFonts = () => {
+            const fontLabel = pipDoc.getElementById('popFontSizeLabel');
+            if (fontLabel) fontLabel.textContent = `${popFontSize}px`;
+            pipDoc.querySelectorAll('.pop-sub-text').forEach(el => {
+              el.style.fontSize = `${popFontSize}px`;
+            });
           };
 
-          pipDoc.getElementById('pipFontInc')?.addEventListener('click', () => {
-            if (pipFontSize < 36) pipFontSize += 2;
-            updatePipFontSize();
+          pipDoc.getElementById('popFontInc')?.addEventListener('click', () => {
+            if (popFontSize < 32) popFontSize += 2;
+            updatePopFonts();
           });
 
-          pipDoc.getElementById('pipFontDec')?.addEventListener('click', () => {
-            if (pipFontSize > 12) pipFontSize -= 2;
-            updatePipFontSize();
+          pipDoc.getElementById('popFontDec')?.addEventListener('click', () => {
+            if (popFontSize > 12) popFontSize -= 2;
+            updatePopFonts();
           });
 
-          pipDoc.getElementById('pipCompactBtn')?.addEventListener('click', () => {
-            isCompact = !isCompact;
-            const multiEl = pipDoc.getElementById('pipMultiLang');
-            const enEl = pipDoc.getElementById('pop-en');
-            const btn = pipDoc.getElementById('pipCompactBtn');
-            if (isCompact) {
-              if (multiEl) multiEl.style.display = 'none';
-              if (enEl) enEl.style.display = 'none';
-              if (btn) btn.innerHTML = '<i class="fa-solid fa-expand mr-1"></i>전체 모드';
-            } else {
-              if (multiEl) multiEl.style.display = 'flex';
-              if (enEl) enEl.style.display = 'block';
-              if (btn) btn.innerHTML = '<i class="fa-solid fa-compress mr-1"></i>한 줄 콤팩트';
-            }
-          });
-
-          showToast("PowerPoint 전체화면/발표자 화면 맨 앞(Picture-in-Picture)에 자막이 고정되었습니다!");
+          showToast("2x2 그리드 형태 자막 창이 분리되었습니다!");
           return;
         } catch (err) {
-          console.warn("Document PIP fallback to normal popout:", err);
+          console.warn("Document PIP fallback to standard popup:", err);
         }
       }
 
@@ -1335,61 +1345,37 @@
         return;
       }
 
-      popoutWindow = window.open('', 'PopoutSubtitles', 'width=960,height=260,scrollbars=yes,resizable=yes');
+      popoutWindow = window.open('', 'PopoutSubtitles', 'width=840,height=480,scrollbars=yes,resizable=yes');
       if (!popoutWindow) {
         showToast("팝업창이 차단되었습니다. 브라우저 팝업 허용을 승인해 주세요.", true);
         return;
       }
 
-      popoutWindow.document.write(`
-        <!DOCTYPE html>
-        <html class="dark">
-        <head>
-          <title>PPT 발표용 분리 자막창 | Woosong Global Translator</title>
-          <script src="https://cdn.tailwindcss.com"><\/script>
-          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-          <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
-          <style>
-            body { font-family: 'Noto Sans KR', sans-serif; background-color: #020617; color: #f8fafc; user-select: none; }
-            .glow { text-shadow: 0 0 12px rgba(0,0,0,0.9), 0 0 10px rgba(244, 63, 94, 0.5); }
-          </style>
-        </head>
-        <body class="p-4 min-h-screen flex flex-col justify-between">
-          <header class="flex justify-between items-center border-b border-slate-800 pb-2 mb-2">
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-              <h1 class="text-sm font-black text-rose-500 tracking-tight uppercase">PPT 발표용 분리 자막창</h1>
-            </div>
-            <p class="text-[10px] text-slate-400">Windows: Shift+Win+방향키로 발표 화면 위에 쉽게 위치시키세요</p>
-          </header>
-          
-          <main class="space-y-2 flex-1 flex flex-col justify-center my-auto">
-            <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl shadow-xl">
-              <span class="text-[10px] font-bold text-slate-400 uppercase">한국어 (KO)</span>
-              <p id="pop-ko" class="text-xl md:text-2xl font-black text-white leading-tight mt-0.5 glow">${subKo.textContent}</p>
-            </div>
-            
-            <div class="bg-slate-900/90 border border-blue-900/60 p-2.5 rounded-xl shadow-xl">
-              <span class="text-[10px] font-bold text-blue-400 uppercase">English (EN)</span>
-              <p id="pop-en" class="text-base md:text-lg font-bold text-blue-200 leading-tight mt-0.5">${subEn.textContent}</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div class="bg-slate-900/90 border border-amber-900/60 p-2 rounded-lg">
-                <span class="text-[10px] font-bold text-amber-400 uppercase">Tiếng Việt (VI)</span>
-                <p id="pop-vi" class="text-xs md:text-sm font-semibold text-amber-200 mt-0.5">VI: ${subVi.textContent}</p>
-              </div>
-              <div class="bg-slate-900/90 border border-red-900/60 p-2 rounded-lg">
-                <span class="text-[10px] font-bold text-red-400 uppercase">中文 (ZH)</span>
-                <p id="pop-zh" class="text-xs md:text-sm font-semibold text-red-200 mt-0.5">ZH: ${subZh.textContent}</p>
-              </div>
-            </div>
-          </main>
-        </body>
-        </html>
-      `);
+      popoutWindow.document.open();
+      popoutWindow.document.write(getPopoutHTML(curKo, curEn, curVi, curZh));
       popoutWindow.document.close();
-      showToast("PPT 발표용 자막 창이 분리되었습니다!");
+
+      const pipDoc = popoutWindow.document;
+      let popFontSize = 16;
+      const updatePopFonts = () => {
+        const fontLabel = pipDoc.getElementById('popFontSizeLabel');
+        if (fontLabel) fontLabel.textContent = `${popFontSize}px`;
+        pipDoc.querySelectorAll('.pop-sub-text').forEach(el => {
+          el.style.fontSize = `${popFontSize}px`;
+        });
+      };
+
+      pipDoc.getElementById('popFontInc')?.addEventListener('click', () => {
+        if (popFontSize < 32) popFontSize += 2;
+        updatePopFonts();
+      });
+
+      pipDoc.getElementById('popFontDec')?.addEventListener('click', () => {
+        if (popFontSize > 12) popFontSize -= 2;
+        updatePopFonts();
+      });
+
+      showToast("2x2 그리드 형태 자막 창이 분리되었습니다!");
     }
 
     function makeFloatingDraggable() {
