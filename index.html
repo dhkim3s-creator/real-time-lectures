@@ -379,7 +379,7 @@
         <!-- TAB 1: Lecture Archive List -->
         <div id="tabArchiveContent" class="flex-1 min-h-0 flex flex-col space-y-2">
           <div class="flex justify-between items-center text-xs">
-            <span class="text-slate-400 text-[11px]">실시간 강의 기록</span>
+            <span class="text-slate-400 text-[11px]">실시간 강의 기록 (최근 3개)</span>
             <div class="flex gap-1">
               <button id="btnExportTxt" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold px-2 py-1 rounded border border-slate-700">
                 TXT
@@ -639,7 +639,9 @@
       }
 
       let html = '';
-      lectureLogs.forEach((l, idx) => {
+      // 최근 3개 기록만 추출하여 표시
+      const displayLogs = lectureLogs.slice(0, 3);
+      displayLogs.forEach((l, idx) => {
         html += `
           <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl space-y-1">
             <div class="flex justify-between items-center text-[10px] text-slate-400">
