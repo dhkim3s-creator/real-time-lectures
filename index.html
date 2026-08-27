@@ -163,23 +163,50 @@
         </div>
 
         <!-- Slide Viewport Content -->
-        <div id="slideViewport" class="relative flex-1 bg-slate-950 flex items-center justify-center overflow-hidden p-3 md:p-6 min-h-[300px]">
+        <div id="slideViewport" class="relative flex-1 bg-slate-950 flex items-center justify-center overflow-hidden p-2 md:p-4 min-h-[300px]">
           <!-- Background image layer for default slides -->
           <div id="slideBg" class="absolute inset-0 bg-cover bg-center opacity-20 transition-all duration-500"></div>
           <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-slate-950/20"></div>
 
-          <!-- Text-based slide container (Default / PPTX text view) -->
-          <div id="textSlide" class="relative z-10 text-center px-4 max-w-3xl transition-all w-full">
-            <h2 id="slideTitle" class="text-xl md:text-3xl font-black mb-3 text-white drop-shadow-md">
-              우송대학교 다국어 강의 지원 시스템
-            </h2>
-            <div id="slideContent" class="text-xs md:text-base leading-relaxed text-slate-300 bg-slate-900/80 border border-slate-800/80 backdrop-blur-md rounded-2xl p-4 md:p-6 shadow-xl whitespace-pre-line text-left max-h-[250px] md:max-h-[350px] overflow-y-auto touch-scroll">
+          <!-- Structured 16:9 PowerPoint Slide Frame -->
+          <div id="textSlide" class="relative z-10 w-full max-w-4xl aspect-[16/9] bg-slate-900/90 border border-slate-700/80 rounded-2xl shadow-2xl p-4 md:p-8 flex flex-col justify-between backdrop-blur-xl overflow-hidden my-auto">
+            
+            <!-- Slide Header Area -->
+            <div class="border-b border-slate-800 pb-3 mb-3 flex items-start justify-between gap-3 shrink-0">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+                  <i class="fa-solid fa-file-powerpoint text-base"></i>
+                </div>
+                <div>
+                  <h2 id="slideTitle" class="text-base md:text-2xl font-black text-white tracking-tight leading-snug">
+                    우송대학교 다국어 강의 지원 시스템
+                  </h2>
+                  <span id="slideSubBadge" class="text-[10px] text-rose-400 font-semibold tracking-wide uppercase">PowerPoint Slide Layout</span>
+                </div>
+              </div>
+              <span id="slideNumberTag" class="text-xs bg-slate-800 border border-slate-700 text-slate-300 font-bold px-2.5 py-1 rounded-full shrink-0">
+                SLIDE #1
+              </span>
+            </div>
+
+            <!-- Slide Content Presentation Body -->
+            <div id="slideContent" class="flex-1 overflow-y-auto space-y-3 text-slate-200 text-xs md:text-sm leading-relaxed touch-scroll pr-1">
               교안 파일(PDF, PPT, PPTX, 이미지)을 올려 실시간으로 강의와 연동할 수 있습니다.
               교수님이 한국어로 강의하면 영어·베트남어·중국어 자막이 즉시 생성됩니다.
             </div>
+
+            <!-- Slide Footer Bar -->
+            <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 shrink-0 mt-2">
+              <span class="flex items-center gap-1.5 font-medium text-slate-400">
+                <i class="fa-solid fa-graduation-cap text-rose-500"></i> Woosong University Global Lecture
+              </span>
+              <span class="text-[10px] bg-slate-800/80 px-2 py-0.5 rounded text-slate-400">
+                💡 TIP: PPTX를 PDF로 저장 후 업로드하시면 100% 원본 레이아웃 그래픽으로 표시됩니다
+              </span>
+            </div>
           </div>
 
-          <!-- Canvas / Image / Render Layer -->
+          <!-- Canvas / Image / PDF Render Layer -->
           <div id="renderLayer" class="absolute inset-0 hidden z-10 bg-slate-950 flex items-center justify-center p-2 overflow-auto touch-scroll"></div>
 
           <!-- Slide Overlay Subtitle Panel -->
@@ -469,8 +496,9 @@
     let app, auth, db, currentUser = null;
     let firebaseReady = false;
     let recognition = null;
-    let userWantedSTT = false; // Flag for continuous recognition until explicitly turned off
+    let userWantedSTT = false; 
     let isRecognizing = false;
+    let consecutiveFailures = 0;
     let restartTimer = null;
     let lastFinalText = "";
     let lastFinalAt = 0;
@@ -484,7 +512,6 @@
 
     // Mobile Speech Recognition Keep-Alive Audio Stream
     let globalAudioStream = null;
-    let audioContext = null;
 
     // Preset Default Slides
     let slides = [
@@ -554,6 +581,8 @@
 
     const slideTitle = document.getElementById('slideTitle');
     const slideContent = document.getElementById('slideContent');
+    const slideSubBadge = document.getElementById('slideSubBadge');
+    const slideNumberTag = document.getElementById('slideNumberTag');
     const slideBg = document.getElementById('slideBg');
     const textSlide = document.getElementById('textSlide');
     const renderLayer = document.getElementById('renderLayer');
@@ -562,86 +591,33 @@
     const slideTypeBadge = document.getElementById('slideTypeBadge');
     const fileInput = document.getElementById('fileInput');
 
-    const btnPrevSlide = document.getElementById('btnPrevSlide');
-    const btnNextSlide = document.getElementById('btnNextSlide');
-    const btnFullScreen = document.getElementById('btnFullScreen');
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
 
-    const tabArchiveBtn = document.getElementById('tabArchiveBtn');
-    const tabAiBtn = document.getElementById('tabAiBtn');
-    const tabArchiveContent = document.getElementById('tabArchiveContent');
-    const tabAiContent = document.getElementById('tabAiContent');
-    const logContainer = document.getElementById('logContainer');
-    const emptyLog = document.getElementById('emptyLog');
-
-    const btnExportTxt = document.getElementById('btnExportTxt');
-    const btnExportJson = document.getElementById('btnExportJson');
-
-    const aiChatBox = document.getElementById('aiChatBox');
-    const aiInput = document.getElementById('aiInput');
-    const btnAiSend = document.getElementById('btnAiSend');
-    const btnAiSummarize = document.getElementById('btnAiSummarize');
-    const btnAiVocab = document.getElementById('btnAiVocab');
-
-    // Toast Notification Helper
     function showToast(msg, isError = false) {
       const toast = document.getElementById('toast');
-      const toastIcon = document.getElementById('toastIcon');
       const toastMsg = document.getElementById('toastMsg');
+      const toastIcon = document.getElementById('toastIcon');
+      if (!toast || !toastMsg) return;
 
       toastMsg.textContent = msg;
       if (isError) {
-        toastIcon.className = "fa-solid fa-triangle-exclamation text-rose-400 text-lg";
+        toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400 text-lg';
       } else {
-        toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+        toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
       }
 
       toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
       setTimeout(() => {
         toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
       }, 3500);
-    }
-
-    async function enableAudioKeepAlive() {
-      try {
-        if (!globalAudioStream) {
-          globalAudioStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true
-            } 
-          });
-        }
-        if (!audioContext) {
-          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-          if (AudioContextClass) {
-            audioContext = new AudioContextClass();
-            const source = audioContext.createMediaStreamSource(globalAudioStream);
-            const gain = audioContext.createGain();
-            gain.gain.value = 0.01; // Maintain active stream without speaker echo
-            source.connect(gain);
-            gain.connect(audioContext.destination);
-          }
-        }
-        if (audioContext && audioContext.state === 'suspended') {
-          await audioContext.resume();
-        }
-        return true;
-      } catch (err) {
-        console.warn("Audio Stream Keep-Alive error:", err);
-        return false;
-      }
-    }
-
-    function stopAudioKeepAlive() {
-      if (globalAudioStream) {
-        globalAudioStream.getTracks().forEach(track => track.stop());
-        globalAudioStream = null;
-      }
-      if (audioContext) {
-        try { audioContext.close(); } catch(e){}
-        audioContext = null;
-      }
     }
 
     async function initFirebase() {
@@ -659,322 +635,316 @@
         onAuthStateChanged(auth, (user) => {
           if (user) {
             currentUser = user;
-            firebaseReady = true;
-            firebaseIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
-            firebaseText.textContent = "Firebase 연결됨";
-            listenToTranscripts();
+            if (firebaseIndicator) firebaseIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500";
+            if (firebaseText) firebaseText.textContent = "Firebase 연결됨";
+            listenToLectureLogs();
           }
         });
+        firebaseReady = true;
       } catch (err) {
-        console.warn("Firebase Auth Fallback:", err);
-        firebaseIndicator.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
-        firebaseText.textContent = "오프라인 모드";
+        console.warn("Firebase Init Warning:", err);
+        if (firebaseIndicator) firebaseIndicator.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+        if (firebaseText) firebaseText.textContent = "오프라인 모드";
       }
     }
 
-    // Firestore Real-Time Transcript Listener
-    function listenToTranscripts() {
+    function listenToLectureLogs() {
       if (!db) return;
-      const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'transcripts');
-      
-      onSnapshot(colRef, (snapshot) => {
-        const docs = [];
-        snapshot.forEach((doc) => {
-          docs.push({ id: doc.id, ...doc.data() });
-        });
-        
-        docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-        lectureLogs = docs;
-        renderLogs();
-      }, (err) => {
-        console.warn("Firestore snapshot error:", err);
-      });
-    }
-
-    // Save transcript log to Firebase
-    async function saveTranscript(text, enText, viText, zhText) {
-      if (!firebaseReady || !db || !text.trim()) return;
       try {
-        const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'transcripts');
-        await addDoc(colRef, {
-          ko: text,
-          en: enText || "",
-          vi: viText || "",
-          zh: zhText || "",
-          slideIndex: currentSlide + 1,
-          createdAt: serverTimestamp(),
-          userId: currentUser ? currentUser.uid : "anonymous"
+        const logsCol = collection(db, 'artifacts', appId, 'public', 'data', 'lecture_logs');
+        onSnapshot(logsCol, (snapshot) => {
+          const logs = [];
+          snapshot.forEach(doc => {
+            logs.push({ id: doc.id, ...doc.data() });
+          });
+          logs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+          lectureLogs = logs;
+          renderLogs();
+        }, (err) => {
+          console.warn("Firestore snapshot listener notice:", err);
         });
-      } catch (e) {
-        console.error("Failed to save transcript to Firestore:", e);
+      } catch (err) {
+        console.warn("Firestore listener err:", err);
       }
     }
 
-    // Render Lecture Archive List
     function renderLogs() {
-      logContainer.innerHTML = "";
+      const logContainer = document.getElementById('logContainer');
+      if (!logContainer) return;
+      
       if (lectureLogs.length === 0) {
-        logContainer.appendChild(emptyLog);
+        logContainer.innerHTML = `
+          <div id="emptyLog" class="text-center text-slate-500 py-12">
+            <i class="fa-solid fa-folder-open text-3xl mb-2 text-slate-600"></i>
+            <p class="text-xs">기록된 강의록이 없습니다.</p>
+          </div>`;
         return;
       }
 
-      lectureLogs.forEach((item) => {
-        const el = document.createElement('div');
-        el.className = "bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 space-y-1 hover:border-slate-700 transition";
-        const timeStr = item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '방금 전';
-
-        el.innerHTML = `
-          <div class="flex justify-between items-center text-[10px] text-slate-500">
-            <span class="font-bold text-rose-400">Slide ${item.slideIndex || 1}</span>
-            <span>${timeStr}</span>
+      let html = '';
+      lectureLogs.forEach((l, idx) => {
+        html += `
+          <div class="bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl space-y-1">
+            <div class="flex justify-between items-center text-[10px] text-slate-400">
+              <span class="font-bold text-rose-400">#${lectureLogs.length - idx} (Slide ${l.slideIndex || 1})</span>
+              <span>${l.timestamp ? new Date(l.timestamp.seconds * 1000).toLocaleTimeString() : '방금 전'}</span>
+            </div>
+            <p class="text-slate-100 font-medium">${escapeHtml(l.ko || '')}</p>
+            ${l.en ? `<p class="text-blue-300 text-[11px]">EN: ${escapeHtml(l.en)}</p>` : ''}
+            ${l.vi ? `<p class="text-amber-300 text-[11px]">VI: ${escapeHtml(l.vi)}</p>` : ''}
+            ${l.zh ? `<p class="text-red-300 text-[11px]">ZH: ${escapeHtml(l.zh)}</p>` : ''}
           </div>
-          <p class="text-slate-200 font-medium">${escapeHtml(item.ko || "")}</p>
-          ${item.en ? `<p class="text-blue-300 text-[11px]">EN: ${escapeHtml(item.en)}</p>` : ''}
-          ${item.vi ? `<p class="text-amber-300 text-[11px]">VI: ${escapeHtml(item.vi)}</p>` : ''}
-          ${item.zh ? `<p class="text-red-300 text-[11px]">ZH: ${escapeHtml(item.zh)}</p>` : ''}
         `;
-        logContainer.appendChild(el);
       });
-    }
-
-    function escapeHtml(str) {
-      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      logContainer.innerHTML = html;
     }
 
     function initSpeechRecognition() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
-        showToast("이 브라우저는 웹 음성 인식을 지원하지 않습니다. Chrome/Safari를 사용해 주세요.", true);
+        showToast("이 브라우저는 음성인식을 지원하지 않습니다. Chrome/Safari를 이용해 주세요.", true);
+        if (micIndicator) micIndicator.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+        if (micText) micText.textContent = "음성인식 미지원";
         return;
       }
 
-      if (recognition) return;
-
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
       recognition = new SpeechRecognition();
-      // Mobile engines are significantly more stable with continuous = false combined with fast auto-restart loop
-      recognition.continuous = !isMobile;
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'ko-KR';
 
       recognition.onstart = () => {
         isRecognizing = true;
-        micIndicator.className = "w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping";
-        micText.textContent = "음성 인식 중";
+        consecutiveFailures = 0;
+        if (micIndicator) micIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+        if (micText) micText.textContent = "음성 인식 중...";
         btnStartSTT.classList.add('hidden');
         btnStopSTT.classList.remove('hidden');
         btnResumeSTT.classList.add('hidden');
       };
 
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        if (interimTranscript) {
+          updateSubtitles(interimTranscript, 'ko');
+        }
+
+        if (finalTranscript) {
+          const trimmed = finalTranscript.trim();
+          const now = Date.now();
+          if (trimmed && (trimmed !== lastFinalText || now - lastFinalAt > 2000)) {
+            lastFinalText = trimmed;
+            lastFinalAt = now;
+            updateSubtitles(trimmed, 'ko');
+            handleTranslationProcess(trimmed);
+          }
+        }
+      };
+
       recognition.onerror = (event) => {
-        console.warn("STT Error:", event.error);
+        console.warn("Speech Recognition Error:", event.error);
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           userWantedSTT = false;
-          showToast("마이크 접근이 거부되었습니다. 주소창 설정에서 마이크를 허용해 주세요.", true);
-          resetSTTButtons();
+          showToast("마이크 접근 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해 주세요.", true);
+          stopSTT();
+        } else if (event.error === 'no-speech') {
+          // Normal silence interval
         }
       };
 
       recognition.onend = () => {
         isRecognizing = false;
-
-        // If the user has NOT clicked "Stop", automatically restart speech recognition in the background!
         if (userWantedSTT) {
-          micIndicator.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
-          micText.textContent = "자동 재연결 중...";
-          
-          clearTimeout(restartTimer);
-          restartTimer = setTimeout(() => {
-            if (userWantedSTT && !isRecognizing) {
-              try {
-                recognition.start();
-              } catch (e) {
-                console.warn("Auto-restart attempt:", e);
-                // Safe secondary retry
-                setTimeout(() => {
-                  if (userWantedSTT && !isRecognizing) {
-                    try { recognition.start(); } catch(err) {
-                      btnResumeSTT.classList.remove('hidden');
-                    }
-                  }
-                }, 300);
-              }
-            }
-          }, isMobile ? 150 : 250);
-        } else {
-          resetSTTButtons();
-        }
-      };
-
-      recognition.onresult = (event) => {
-        let interimText = '';
-        let finalText = '';
-
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalText += event.results[i][0].transcript;
+          consecutiveFailures++;
+          if (consecutiveFailures >= 4) {
+            btnStartSTT.classList.add('hidden');
+            btnStopSTT.classList.add('hidden');
+            btnResumeSTT.classList.remove('hidden');
+            if (micIndicator) micIndicator.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+            if (micText) micText.textContent = "마이크 재연결 필요";
           } else {
-            interimText += event.results[i][0].transcript;
+            restartTimer = setTimeout(() => {
+              if (userWantedSTT && !isRecognizing) {
+                try {
+                  recognition.start();
+                } catch (e) {
+                  console.warn("Auto-restart recognition exception:", e);
+                }
+              }
+            }, 300);
           }
-        }
-
-        const currentText = finalText || interimText;
-        if (currentText.trim()) {
-          updateSubtitles(currentText, "ko");
-
-          if (finalText.trim()) {
-            const now = Date.now();
-            if (finalText !== lastFinalText || (now - lastFinalAt > 2000)) {
-              lastFinalText = finalText;
-              lastFinalAt = now;
-              handleTranslationProcess(finalText);
-            }
-          }
+        } else {
+          if (micIndicator) micIndicator.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+          if (micText) micText.textContent = "마이크 대기";
+          btnStartSTT.classList.remove('hidden');
+          btnStopSTT.classList.add('hidden');
+          btnResumeSTT.classList.add('hidden');
         }
       };
-    }
-
-    function resetSTTButtons() {
-      micIndicator.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
-      micText.textContent = "마이크 정지됨";
-      btnStartSTT.classList.remove('hidden');
-      btnStopSTT.classList.add('hidden');
-      btnResumeSTT.classList.add('hidden');
     }
 
     async function startSTT() {
       userWantedSTT = true;
+      consecutiveFailures = 0;
 
-      // Keep audio stream alive to ensure uninterrupted background recording
-      await enableAudioKeepAlive();
+      try {
+        if (!globalAudioStream) {
+          globalAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+      } catch (err) {
+        console.warn("Audio warm up notice:", err);
+      }
 
-      if (!recognition) initSpeechRecognition();
+      if (!recognition) {
+        initSpeechRecognition();
+      }
 
       if (recognition && !isRecognizing) {
         try {
           recognition.start();
-          showToast("마이크 음성인식이 시작되었습니다!");
-        } catch (e) {
-          console.warn("Start STT Exception:", e);
-          if (e.name === 'InvalidStateError') {
-            isRecognizing = true;
-          }
+          showToast("실시간 마이크 음성인식을 시작합니다.");
+        } catch (err) {
+          console.warn("Recognition start exception:", err);
         }
       }
     }
 
     function stopSTT() {
-      userWantedSTT = false; // User explicitly clicked stop button
-      clearTimeout(restartTimer);
-      
-      if (recognition && isRecognizing) {
-        try { recognition.stop(); } catch(e){}
+      userWantedSTT = false;
+      isRecognizing = false;
+      if (restartTimer) clearTimeout(restartTimer);
+
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch (err) {
+          console.warn("Recognition stop exception:", err);
+        }
       }
-      
-      stopAudioKeepAlive();
-      resetSTTButtons();
-      showToast("마이크 음성인식이 완전히 중지되었습니다.");
+
+      if (globalAudioStream) {
+        globalAudioStream.getTracks().forEach(track => track.stop());
+        globalAudioStream = null;
+      }
+
+      if (micIndicator) micIndicator.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+      if (micText) micText.textContent = "마이크 대기";
+
+      btnStartSTT.classList.remove('hidden');
+      btnStopSTT.classList.add('hidden');
+      btnResumeSTT.classList.add('hidden');
+      showToast("음성인식이 중지되었습니다.");
     }
 
-    async function performTranslation(text, targetLang) {
-      if (!text.trim()) return "";
-      
+    function updateSubtitles(text, lang) {
+      if (lang === 'ko') {
+        if (subKo) subKo.textContent = text;
+        if (overlayKo) overlayKo.textContent = text;
+        if (floatSubKo) floatSubKo.textContent = text;
+      } else if (lang === 'en') {
+        if (subEn) subEn.textContent = text;
+        if (overlayEn) overlayEn.textContent = text;
+        if (floatSubEn) floatSubEn.textContent = text;
+      } else if (lang === 'vi') {
+        if (subVi) subVi.textContent = text;
+        if (overlayVi) overlayVi.textContent = text;
+        if (floatSubVi) floatSubVi.textContent = text;
+      } else if (lang === 'zh') {
+        if (subZh) subZh.textContent = text;
+        if (overlayZh) overlayZh.textContent = text;
+        if (floatSubZh) floatSubZh.textContent = text;
+      }
+
+      if (popoutWindow && !popoutWindow.closed && popoutWindow.document) {
+        const popEl = popoutWindow.document.getElementById(`pop-${lang}`);
+        if (popEl) {
+          if (lang === 'vi') popEl.textContent = `VI: ${text}`;
+          else if (lang === 'zh') popEl.textContent = `ZH: ${text}`;
+          else popEl.textContent = text;
+        }
+      }
+    }
+
+    async function handleTranslationProcess(koText) {
+      if (!koText) return;
+
+      try {
+        const [en, vi, zh] = await Promise.all([
+          translateText(koText, 'en'),
+          translateText(koText, 'vi'),
+          translateText(koText, 'zh-CN')
+        ]);
+
+        updateSubtitles(en, 'en');
+        updateSubtitles(vi, 'vi');
+        updateSubtitles(zh, 'zh');
+
+        saveLogToFirebase(koText, en, vi, zh);
+      } catch (err) {
+        console.error("Translation Error:", err);
+      }
+    }
+
+    async function translateText(text, targetLang) {
       if (useGeminiAI) {
-        return await translateWithGemini(text, targetLang);
+        try {
+          const apiKey = "";
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `Translate the following Korean text into ${targetLang} accurately without commentary:\n"${text}"` }] }]
+            })
+          });
+          const data = await res.json();
+          const translated = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          if (translated) return translated;
+        } catch (e) {
+          console.warn("Gemini translate fallback notice:", e);
+        }
       }
 
       try {
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const response = await fetch(url);
+        const data = await response.json();
         if (data && data[0]) {
           return data[0].map(item => item[0]).join('');
         }
       } catch (err) {
-        console.warn(`Free Translate API Error (${targetLang}):`, err);
+        console.error("Google Translate fetch failed:", err);
       }
       return text;
     }
 
-    async function translateWithGemini(text, targetLang) {
-      const langNames = { en: "English", vi: "Vietnamese", zh: "Simplified Chinese" };
-      const systemPrompt = `You are an expert academic lecture translator. Translate the given Korean lecture speech accurately into ${langNames[targetLang] || targetLang}. Maintain original meaning and smooth flow. Respond ONLY with the translation text without explanations.`;
-      
-      const apiKey = "";
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
-
+    async function saveLogToFirebase(ko, en, vi, zh) {
+      if (!db) return;
       try {
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: text }] }],
-            systemInstruction: { parts: [{ text: systemPrompt }] }
-          })
+        const logsCol = collection(db, 'artifacts', appId, 'public', 'data', 'lecture_logs');
+        await addDoc(logsCol, {
+          ko: ko,
+          en: en,
+          vi: vi,
+          zh: zh,
+          slideIndex: currentSlide + 1,
+          timestamp: serverTimestamp()
         });
-        const result = await response.json();
-        const candidate = result.candidates?.[0];
-        if (candidate?.content?.parts?.[0]?.text) {
-          return candidate.content.parts[0].text.trim();
-        }
-      } catch (e) {
-        console.error("Gemini Translation Exception:", e);
-      }
-      return text;
-    }
-
-    async function handleTranslationProcess(koText) {
-      try {
-        const [enRes, viRes, zhRes] = await Promise.all([
-          performTranslation(koText, 'en'),
-          performTranslation(koText, 'vi'),
-          performTranslation(koText, 'zh-CN')
-        ]);
-
-        updateSubtitles(enRes, "en");
-        updateSubtitles(viRes, "vi");
-        updateSubtitles(zhRes, "zh");
-
-        saveTranscript(koText, enRes, viRes, zhRes);
       } catch (err) {
-        console.error("Translation Pipeline Error:", err);
+        console.warn("Save log exception:", err);
       }
     }
 
-    function updateSubtitles(text, lang) {
-      if (lang === "ko") {
-        subKo.textContent = text;
-        overlayKo.textContent = text;
-        floatSubKo.textContent = text;
-      } else if (lang === "en") {
-        subEn.textContent = text;
-        overlayEn.textContent = text;
-        floatSubEn.textContent = text;
-      } else if (lang === "vi") {
-        subVi.textContent = text;
-        overlayVi.textContent = `VI: ${text}`;
-        floatSubVi.textContent = text;
-      } else if (lang === "zh") {
-        subZh.textContent = text;
-        overlayZh.textContent = `ZH: ${text}`;
-        floatSubZh.textContent = text;
-      }
-
-      if (popoutWindow) {
-        try {
-          const targetDoc = popoutWindow.document || popoutWindow;
-          const targetEl = targetDoc.getElementById(`pop-${lang}`);
-          if (targetEl) {
-            if (lang === "vi") targetEl.textContent = `VI: ${text}`;
-            else if (lang === "zh") targetEl.textContent = `ZH: ${text}`;
-            else targetEl.textContent = text;
-          }
-        } catch(e){}
-      }
-    }
-
-    // Render current slide
     function renderSlide() {
       if (!slides || slides.length === 0) return;
       if (currentSlide < 0) currentSlide = 0;
@@ -982,17 +952,9 @@
 
       const slide = slides[currentSlide];
 
-      const currentSlideIndex = document.getElementById('currentSlideIndex');
-      const totalSlidesCount = document.getElementById('totalSlidesCount');
-      const slideTypeBadge = document.getElementById('slideTypeBadge');
-      const textSlide = document.getElementById('textSlide');
-      const renderLayer = document.getElementById('renderLayer');
-      const slideTitle = document.getElementById('slideTitle');
-      const slideContent = document.getElementById('slideContent');
-      const slideBg = document.getElementById('slideBg');
-
       if (currentSlideIndex) currentSlideIndex.textContent = currentSlide + 1;
       if (totalSlidesCount) totalSlidesCount.textContent = slides.length;
+      if (slideNumberTag) slideNumberTag.textContent = `SLIDE #${currentSlide + 1}`;
 
       if (!textSlide || !renderLayer) return;
 
@@ -1021,7 +983,56 @@
         textSlide.classList.remove('hidden');
 
         if (slideTitle) slideTitle.textContent = slide.title || `슬라이드 ${currentSlide + 1}`;
-        if (slideContent) slideContent.textContent = slide.content || '';
+        if (slideSubBadge) slideSubBadge.textContent = slide.typeBadge || "PowerPoint Slide Layout";
+
+        if (slideContent) {
+          if (slide.paragraphs && slide.paragraphs.length > 0) {
+            let html = '<div class="space-y-2.5">';
+            slide.paragraphs.forEach(p => {
+              if (p.isBullet) {
+                html += `
+                  <div class="flex items-start gap-2.5 pl-2">
+                    <span class="w-2 h-2 rounded-full bg-rose-500 mt-1.5 shrink-0 shadow-sm shadow-rose-500/50"></span>
+                    <p class="text-slate-100 font-medium">${escapeHtml(p.text)}</p>
+                  </div>`;
+              } else {
+                html += `<p class="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl text-slate-200 font-normal leading-relaxed">${escapeHtml(p.text)}</p>`;
+              }
+            });
+
+            if (slide.images && slide.images.length > 0) {
+              html += '<div class="grid grid-cols-2 gap-2 pt-2">';
+              slide.images.forEach(imgUrl => {
+                html += `<img src="${imgUrl}" class="max-h-40 w-full object-cover rounded-xl border border-slate-700 shadow-md" />`;
+              });
+              html += '</div>';
+            }
+            html += '</div>';
+            slideContent.innerHTML = html;
+          } else {
+            const lines = (slide.content || "").split('\n').filter(l => l.trim().length > 0);
+            if (lines.length > 0) {
+              let html = '<div class="space-y-2">';
+              lines.forEach(line => {
+                const isBullet = line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || /^\d+\./.test(line);
+                const cleanLine = line.replace(/^[•\-\*\d\.]+\s*/, '');
+                if (isBullet) {
+                  html += `
+                    <div class="flex items-start gap-2.5 pl-2">
+                      <span class="w-2 h-2 rounded-full bg-rose-500 mt-1.5 shrink-0"></span>
+                      <p class="text-slate-100 font-medium">${escapeHtml(cleanLine)}</p>
+                    </div>`;
+                } else {
+                  html += `<p class="bg-slate-950/50 border border-slate-800/80 p-2.5 rounded-xl text-slate-200 leading-relaxed">${escapeHtml(line)}</p>`;
+                }
+              });
+              html += '</div>';
+              slideContent.innerHTML = html;
+            } else {
+              slideContent.textContent = slide.content || '';
+            }
+          }
+        }
 
         if (slideBg) {
           if (slide.image) {
@@ -1031,12 +1042,11 @@
             slideBg.style.backgroundImage = 'none';
           }
         }
-        if (slideTypeBadge) slideTypeBadge.textContent = slide.typeBadge || "기본 교안";
+        if (slideTypeBadge) slideTypeBadge.textContent = slide.typeBadge || "PowerPoint 교안";
       }
     }
     window.renderSlide = renderSlide;
 
-    // Native PPTX File Parser using JSZip & DOMParser
     async function parsePPTXFile(file) {
       const slidesList = [];
       try {
@@ -1045,7 +1055,6 @@
         }
         const zip = await JSZip.loadAsync(file);
         
-        // Find slide XML files inside ppt/slides/
         const slideFiles = [];
         zip.folder("ppt/slides").forEach((relativePath, zipEntry) => {
           const match = relativePath.match(/^slide(\d+)\.xml$/i);
@@ -1057,12 +1066,9 @@
           }
         });
 
-        // Sort by slide number
         slideFiles.sort((a, b) => a.num - b.num);
 
-        if (slideFiles.length === 0) {
-          return slidesList;
-        }
+        if (slideFiles.length === 0) return slidesList;
 
         const parser = new DOMParser();
 
@@ -1071,29 +1077,38 @@
           const xmlText = await zip.file(slideEntry.path).async("text");
           const xmlDoc = parser.parseFromString(xmlText, "text/xml");
 
-          // Extract text nodes (<a:t>)
-          const textNodes = xmlDoc.getElementsByTagName("a:t");
-          const texts = [];
-          for (let j = 0; j < textNodes.length; j++) {
-            const val = textNodes[j].textContent ? textNodes[j].textContent.trim() : "";
-            if (val) texts.push(val);
+          const paragraphNodes = xmlDoc.getElementsByTagName("a:p");
+          const paragraphs = [];
+          let slideTitle = "";
+
+          for (let pIdx = 0; pIdx < paragraphNodes.length; pIdx++) {
+            const pNode = paragraphNodes[pIdx];
+            const textNodes = pNode.getElementsByTagName("a:t");
+            let pText = "";
+            for (let tIdx = 0; tIdx < textNodes.length; tIdx++) {
+              pText += textNodes[tIdx].textContent || "";
+            }
+            pText = pText.trim();
+            if (pText) {
+              if (!slideTitle && pIdx === 0) {
+                slideTitle = pText;
+              } else {
+                const pPr = pNode.getElementsByTagName("a:pPr")[0];
+                const isBullet = pPr ? (pPr.getElementsByTagName("a:buChar").length > 0 || pPr.getAttribute("lvl") !== null) : false;
+                paragraphs.push({
+                  text: pText,
+                  isBullet: isBullet || pText.startsWith("•") || pText.startsWith("-")
+                });
+              }
+            }
           }
 
-          let slideTitle = `${file.name} (Slide ${slideEntry.num})`;
-          let slideContentText = "";
-
-          if (texts.length > 0) {
-            slideTitle = texts[0];
-            slideContentText = texts.slice(1).join("\n\n");
+          if (!slideTitle) {
+            slideTitle = `${file.name} (Slide ${slideEntry.num})`;
           }
 
-          if (!slideContentText && texts.length === 1) {
-            slideContentText = texts[0];
-          }
-
-          // Check for embedded media images in ppt/slides/_rels/
           const relsPath = `ppt/slides/_rels/slide${slideEntry.num}.xml.rels`;
-          let slideImage = null;
+          const slideImages = [];
 
           const relsFile = zip.file(relsPath);
           if (relsFile) {
@@ -1109,18 +1124,17 @@
                 const mediaFile = zip.file(mediaZipPath);
                 if (mediaFile) {
                   const imageBlob = await mediaFile.async("blob");
-                  slideImage = URL.createObjectURL(imageBlob);
-                  break;
+                  slideImages.push(URL.createObjectURL(imageBlob));
                 }
               }
             }
           }
 
           slidesList.push({
-            type: slideImage ? "pptx_image" : "text",
+            type: "pptx_structured",
             title: slideTitle,
-            content: slideContentText || "(슬라이드 텍스트 내용 없음)",
-            image: slideImage,
+            paragraphs: paragraphs,
+            images: slideImages,
             typeBadge: `PPTX (Slide ${slideEntry.num}/${slideFiles.length})`
           });
         }
@@ -1130,7 +1144,6 @@
       return slidesList;
     }
 
-    // Handle File Upload (PDF, Images, PPTX)
     if (fileInput) {
       fileInput.addEventListener('change', async (e) => {
         const files = Array.from(e.target.files);
@@ -1216,14 +1229,12 @@
     }
 
     async function openPopoutWindow() {
-      // 1. Document Picture-in-Picture (OS 최상단 고정 기능) 지원 확인
       if ('documentPictureInPicture' in window) {
         try {
           if (popoutWindow && !popoutWindow.closed) {
             popoutWindow.close();
           }
 
-          // PPT 화면 위나 하단에 콤팩트하게 고정 배치할 수 있는 Always-On-Top 윈도우 생성
           popoutWindow = await window.documentPictureInPicture.requestWindow({
             width: 980,
             height: 180
@@ -1319,7 +1330,6 @@
         }
       }
 
-      // 2. 일반 팝업창 Fallback
       if (popoutWindow && !popoutWindow.closed) {
         popoutWindow.focus();
         return;
@@ -1466,14 +1476,17 @@ Answer the user's question concisely in polite Korean (or the language requested
 
     function appendAiMessage(sender, text) {
       const msgEl = document.createElement('div');
+      const aiChatBox = document.getElementById('aiChatBox');
       if (sender === "user") {
         msgEl.className = "bg-indigo-600/30 border border-indigo-500/40 text-indigo-100 p-2 rounded-xl text-right font-medium";
       } else {
         msgEl.className = "bg-slate-900 border border-slate-800 text-slate-200 p-2 rounded-xl leading-relaxed whitespace-pre-line";
       }
       msgEl.textContent = text;
-      aiChatBox.appendChild(msgEl);
-      aiChatBox.scrollTop = aiChatBox.scrollHeight;
+      if (aiChatBox) {
+        aiChatBox.appendChild(msgEl);
+        aiChatBox.scrollTop = aiChatBox.scrollHeight;
+      }
       return msgEl;
     }
 
@@ -1515,7 +1528,6 @@ Answer the user's question concisely in polite Korean (or the language requested
       showToast("화면의 실시간 자막이 초기화되었습니다.");
     });
 
-    // Layout Switching
     btnLayoutBottom.addEventListener('click', () => {
       overlayMode = false;
       floatingMode = false;
@@ -1553,7 +1565,6 @@ Answer the user's question concisely in polite Korean (or the language requested
     btnPopout.addEventListener('click', openPopoutWindow);
     btnPopoutHeader.addEventListener('click', openPopoutWindow);
 
-    // Font Adjustments
     btnFontInc.addEventListener('click', () => {
       if (fontSize < 28) fontSize += 2;
       fontSizeLabel.textContent = `${fontSize}px`;
@@ -1566,7 +1577,6 @@ Answer the user's question concisely in polite Korean (or the language requested
       document.querySelectorAll('.subtitle-text').forEach(el => el.style.fontSize = `${fontSize}px`);
     });
 
-    // Slide Navigation
     btnPrevSlide.addEventListener('click', () => {
       if (currentSlide > 0) {
         currentSlide--;
@@ -1592,7 +1602,11 @@ Answer the user's question concisely in polite Korean (or the language requested
       }
     });
 
-    // Sidebar Tab Switching
+    const tabArchiveBtn = document.getElementById('tabArchiveBtn');
+    const tabAiBtn = document.getElementById('tabAiBtn');
+    const tabArchiveContent = document.getElementById('tabArchiveContent');
+    const tabAiContent = document.getElementById('tabAiContent');
+
     tabArchiveBtn.addEventListener('click', () => {
       tabArchiveContent.classList.remove('hidden');
       tabAiContent.classList.add('hidden');
@@ -1607,7 +1621,9 @@ Answer the user's question concisely in polite Korean (or the language requested
       tabArchiveBtn.className = "flex-1 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-200 border-b-2 border-transparent text-center transition";
     });
 
-    // Export Transcripts
+    const btnExportTxt = document.getElementById('btnExportTxt');
+    const btnExportJson = document.getElementById('btnExportJson');
+
     btnExportTxt.addEventListener('click', () => {
       if (lectureLogs.length === 0) {
         showToast("내보낼 강의 기록이 없습니다.", true);
@@ -1643,7 +1659,11 @@ Answer the user's question concisely in polite Korean (or the language requested
       a.click();
     });
 
-    // AI Assistant Handlers
+    const btnAiSend = document.getElementById('btnAiSend');
+    const aiInput = document.getElementById('aiInput');
+    const btnAiSummarize = document.getElementById('btnAiSummarize');
+    const btnAiVocab = document.getElementById('btnAiVocab');
+
     btnAiSend.addEventListener('click', () => {
       const query = aiInput.value.trim();
       if (query) {
@@ -1670,7 +1690,7 @@ Answer the user's question concisely in polite Korean (or the language requested
       askGeminiAI("현재 슬라이드와 강의 내용에서 외국인 유학생이 알면 좋은 핵심 학술 단어 5개를 추출하고 한국어/영어 뜻을 작성해 주세요.");
     });
 
-    // Application Initialization Entrypoint
+    // Application Entrypoint
     function initApp() {
       initFirebase();
       initSpeechRecognition();
