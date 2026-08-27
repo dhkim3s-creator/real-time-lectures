@@ -74,7 +74,6 @@
 
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col overflow-x-hidden selection:bg-rose-500 selection:text-white">
 
-  <!-- Application Header -->
   <header class="bg-slate-900/90 border-b border-slate-800/80 sticky top-0 z-40 backdrop-blur-md px-3 md:px-4 py-2.5 shadow-xl">
     <div class="max-w-[1800px] mx-auto flex flex-wrap justify-between items-center gap-3">
       
@@ -88,7 +87,7 @@
             <h1 class="font-extrabold text-base md:text-lg text-white tracking-tight">Woosong Global Lecture</h1>
             <span class="text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">AI Live</span>
           </div>
-          <p class="text-[11px] text-slate-400">실시간 모바일 음성인식 · 다국어 번역 · PDF/PPTX 교안 · 분리형 자막</p>
+          <p class="text-[11px] text-slate-400">실시간 모바일 연속 음성인식 · 다국어 번역 · PDF/PPTX 교안 · 분리형 자막</p>
         </div>
       </div>
 
@@ -124,7 +123,6 @@
     </div>
   </header>
 
-  <!-- MAIN CONTAINER: Fully responsive layout. On desktop (lg): fixed height with scrollable panels. On mobile: normal auto-scrolling page -->
   <main class="flex-1 max-w-[1800px] w-full mx-auto p-3 md:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-65px)] lg:overflow-hidden overflow-y-auto">
     
     <!-- LEFT SECTION: Slide Viewer & Subtitle Display (8 cols) -->
@@ -184,7 +182,7 @@
           <!-- Canvas / Image / Render Layer -->
           <div id="renderLayer" class="absolute inset-0 hidden z-10 bg-slate-950 flex items-center justify-center p-2 overflow-auto touch-scroll"></div>
 
-          <!-- Slide Overlay Subtitle Panel (When Slide Overlay mode is active) -->
+          <!-- Slide Overlay Subtitle Panel -->
           <div id="overlaySubtitlePanel" class="absolute bottom-0 left-0 right-0 hidden z-20 bg-slate-950/95 backdrop-blur-md border-t border-slate-800/90 p-3 md:p-4 text-white shadow-2xl">
             <div class="max-w-4xl mx-auto space-y-1 text-center">
               <p id="overlayKo" class="text-slate-100 font-bold text-sm md:text-base subtitle-glow">한국어 자막 대기 중...</p>
@@ -196,7 +194,7 @@
             </div>
           </div>
 
-          <!-- Draggable Floating Subtitle Widget (When Floating mode is active) -->
+          <!-- Draggable Floating Subtitle Widget -->
           <div id="floatingSubtitleWidget" class="absolute top-4 right-4 hidden z-30 w-80 md:w-96 bg-slate-900/95 border border-slate-700/80 rounded-2xl shadow-2xl p-3 glass-panel text-white transition-shadow">
             <div id="floatingHeader" class="draggable-panel flex justify-between items-center pb-2 mb-2 border-b border-slate-800 select-none cursor-grab active:cursor-grabbing">
               <span class="text-[11px] font-bold text-rose-400 flex items-center gap-1">
@@ -228,7 +226,6 @@
         </div>
       </div>
 
-      <!-- Multilingual Subtitle Grid Panel -->
       <div class="bg-slate-900 border border-slate-800/80 rounded-2xl p-3 shadow-xl flex flex-col min-h-[300px] lg:min-h-0 flex-[4]">
         
         <!-- Controls bar for subtitles -->
@@ -323,7 +320,6 @@
       </div>
     </section>
 
-    <!-- RIGHT SECTION: Microphone Controls, AI Assistant, Archive (4 cols) -->
     <aside class="lg:col-span-4 flex flex-col gap-3 h-full min-h-0">
       
       <!-- Voice Recognition Control Card -->
@@ -333,7 +329,7 @@
             <i class="fa-solid fa-microphone text-rose-500"></i>
             <span>강의 음성인식 제어</span>
           </span>
-          <span id="mobileBadge" class="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full">모바일 지원</span>
+          <span id="mobileBadge" class="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-full">연속 자동 유지</span>
         </h3>
 
         <div class="grid grid-cols-2 gap-2">
@@ -343,15 +339,16 @@
             <span class="text-sm">실시간 마이크 번역 시작</span>
           </button>
           
-          <button id="btnStopSTT" class="hidden col-span-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 rounded-xl transition flex items-center justify-center gap-2">
-            <i class="fa-solid fa-circle-pause text-rose-400"></i>
-            <span>음성인식 일시정지</span>
+          <!-- Stop STT Button (Clicking this completely disables speech recognition) -->
+          <button id="btnStopSTT" class="hidden col-span-2 bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 border border-slate-700 text-rose-400 font-bold py-3.5 rounded-xl transition flex items-center justify-center gap-2 shadow-md">
+            <i class="fa-solid fa-circle-stop text-lg text-rose-500"></i>
+            <span class="text-sm text-slate-100">음성인식 중지 (사용 종료)</span>
           </button>
 
-          <!-- Smartphone Prominent One-Touch Resume Button -->
-          <button id="btnResumeSTT" class="hidden col-span-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-extrabold py-3.5 rounded-xl shadow-xl shadow-amber-500/20 transition flex items-center justify-center gap-2 animate-pulse-ring">
+          <!-- Fallback resume button for edge-case browser restrictions -->
+          <button id="btnResumeSTT" class="hidden col-span-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-extrabold py-3 rounded-xl shadow-xl transition flex items-center justify-center gap-2">
             <i class="fa-solid fa-hand-pointer text-lg"></i>
-            <span class="text-sm">🎤 터치하여 음성인식 재개</span>
+            <span class="text-xs">🎤 터치하여 마이크 재연결 승인</span>
           </button>
 
           <button id="btnTestTranslate" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold py-2 rounded-xl border border-slate-700/60 transition flex items-center justify-center gap-1">
@@ -365,20 +362,18 @@
           </button>
         </div>
 
-        <!-- Smartphone Permission & Diagnostic Box -->
+        <!-- Smartphone Permission & Automatic Loop Guide -->
         <div class="mt-3 bg-slate-950/90 border border-slate-800 rounded-xl p-3 text-[11px] text-slate-300 leading-relaxed space-y-1.5 shadow-inner">
-          <p class="text-rose-400 font-bold flex items-center gap-1.5">
-            <i class="fa-solid fa-mobile-screen-button"></i> 스마트폰 마이크 연결 안내
+          <p class="text-emerald-400 font-bold flex items-center gap-1.5">
+            <i class="fa-solid fa-shield-halved"></i> 무중단 음성인식 가이드
           </p>
           <ul class="list-disc list-inside space-y-1 text-slate-400 text-[10px] md:text-[11px]">
-            <li>모바일 브라우저는 보안 정책상 <b>화면을 직접 터치할 때만</b> 마이크가 켜집니다.</li>
-            <li>Safari(iOS) / Chrome(Android)의 주소창 🔒(설정)에서 <b>[마이크 -> 허용]</b>으로 지정해 주세요.</li>
-            <li>침묵 상태 후 음성인식이 꺼진 경우 황색 <b>[터치하여 음성인식 재개]</b> 버튼을 누르면 즉시 재가동됩니다.</li>
+            <li><b>[실시간 마이크 번역 시작]</b>을 누른 후 마이크 승인을 하면 <b>[음성인식 중지]</b>를 누를 때까지 백그라운드에서 자동으로 지속 실행됩니다.</li>
+            <li>스마트폰 및 PC의 잠시 무음 상태 후에도 음성인식이 자동으로 즉시 재개됩니다.</li>
           </ul>
         </div>
       </div>
 
-      <!-- AI Assistant & Lecture Archive Tabs Container -->
       <div class="bg-slate-900 border border-slate-800/80 rounded-2xl p-3.5 shadow-xl flex-1 min-h-[350px] lg:min-h-0 flex flex-col">
         
         <!-- Tab Buttons -->
@@ -447,7 +442,6 @@
     </aside>
   </main>
 
-  <!-- Toast Notification Container -->
   <div id="toast" class="fixed bottom-6 right-6 z-50 bg-slate-900/95 border border-slate-700 text-slate-100 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transition-all duration-300 translate-y-20 opacity-0 pointer-events-none max-w-md">
     <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
     <span id="toastMsg" class="text-xs font-semibold leading-normal"></span>
@@ -456,7 +450,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // Firebase Configuration
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
@@ -475,7 +469,7 @@
     let app, auth, db, currentUser = null;
     let firebaseReady = false;
     let recognition = null;
-    let userWantedSTT = false;
+    let userWantedSTT = false; // Flag for continuous recognition until explicitly turned off
     let isRecognizing = false;
     let restartTimer = null;
     let lastFinalText = "";
@@ -488,10 +482,9 @@
     let currentSlide = 0;
     let useGeminiAI = false;
 
-    // Mobile Speech Recognition Stability Control
-    let audioStream = null;
-    let consecutiveFailures = 0;
-    let lastStartTime = 0;
+    // Mobile Speech Recognition Keep-Alive Audio Stream
+    let globalAudioStream = null;
+    let audioContext = null;
 
     // Preset Default Slides
     let slides = [
@@ -510,7 +503,7 @@
       {
         type: "text",
         title: "스마트폰 & 모바일 가이드 (Mobile Usage Guide)",
-        content: "1. 스마트폰 주소창 🔒 클릭 -> [마이크 허용] 설정\n2. 화면 조작 후 멈춤 시 [터치하여 음성인식 재개] 버튼 활용\n3. 하단 자막, 화면 오버레이, 플로팅, 새 창 분리 모드 자유 전환 가능",
+        content: "1. 실시간 마이크 번역 시작을 승인하면 사용 중지 전까지 지속 연결됩니다.\n2. 침묵이나 무음 시에도 백그라운드에서 자동 재연결이 수행됩니다.\n3. 하단 자막, 화면 오버레이, 플로팅, 새 창 분리 모드 자유 전환 가능",
         image: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=1400&q=80"
       }
     ];
@@ -608,14 +601,55 @@
       }, 3500);
     }
 
-    // Initialize Firebase
+    async function enableAudioKeepAlive() {
+      try {
+        if (!globalAudioStream) {
+          globalAudioStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            } 
+          });
+        }
+        if (!audioContext) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            audioContext = new AudioContextClass();
+            const source = audioContext.createMediaStreamSource(globalAudioStream);
+            const gain = audioContext.createGain();
+            gain.gain.value = 0.01; // Maintain active stream without speaker echo
+            source.connect(gain);
+            gain.connect(audioContext.destination);
+          }
+        }
+        if (audioContext && audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+        return true;
+      } catch (err) {
+        console.warn("Audio Stream Keep-Alive error:", err);
+        return false;
+      }
+    }
+
+    function stopAudioKeepAlive() {
+      if (globalAudioStream) {
+        globalAudioStream.getTracks().forEach(track => track.stop());
+        globalAudioStream = null;
+      }
+      if (audioContext) {
+        try { audioContext.close(); } catch(e){}
+        audioContext = null;
+      }
+    }
+
     async function initFirebase() {
       try {
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
 
-        // Sign in anonymously or with initial auth token
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
           await signInWithCustomToken(auth, __initial_auth_token);
         } else {
@@ -641,7 +675,6 @@
     // Firestore Real-Time Transcript Listener
     function listenToTranscripts() {
       if (!db) return;
-      // Rule 1: Standard public path
       const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'transcripts');
       
       onSnapshot(colRef, (snapshot) => {
@@ -650,10 +683,7 @@
           docs.push({ id: doc.id, ...doc.data() });
         });
         
-        // Client-side sorting by creation time
         docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-        
-        // Update archive view with recent entries
         lectureLogs = docs;
         renderLogs();
       }, (err) => {
@@ -711,26 +741,6 @@
       return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    // Request Microphone Permission via getUserMedia for Mobile Warm-up
-    async function requestMicPermission() {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-          if (!audioStream) {
-            audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          }
-          return true;
-        } catch (err) {
-          console.warn("Mic getUserMedia error:", err);
-          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            showToast("마이크 권한이 거부되었습니다. 스마트폰 주소창 🔒 설정을 확인해 주세요.", true);
-          }
-          return false;
-        }
-      }
-      return true;
-    }
-
-    // Speech Recognition Setup
     function initSpeechRecognition() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
@@ -740,74 +750,60 @@
 
       if (recognition) return;
 
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
       recognition = new SpeechRecognition();
-      recognition.continuous = true;
+      // Mobile engines are significantly more stable with continuous = false combined with fast auto-restart loop
+      recognition.continuous = !isMobile;
       recognition.interimResults = true;
       recognition.lang = 'ko-KR';
 
       recognition.onstart = () => {
         isRecognizing = true;
-        consecutiveFailures = 0; // Reset count on successful start
         micIndicator.className = "w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping";
         micText.textContent = "음성 인식 중";
         btnStartSTT.classList.add('hidden');
         btnStopSTT.classList.remove('hidden');
         btnResumeSTT.classList.add('hidden');
-        showToast("마이크 연결 완료! 한국어로 말씀하세요.");
       };
 
       recognition.onerror = (event) => {
         console.warn("STT Error:", event.error);
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           userWantedSTT = false;
-          showToast("마이크 접근이 거부되었습니다. 스마트폰 설정에서 [마이크 허용]을 켜주세요.", true);
-          btnStartSTT.classList.remove('hidden');
-          btnStopSTT.classList.add('hidden');
-          btnResumeSTT.classList.add('hidden');
+          showToast("마이크 접근이 거부되었습니다. 주소창 설정에서 마이크를 허용해 주세요.", true);
+          resetSTTButtons();
         }
       };
 
       recognition.onend = () => {
         isRecognizing = false;
-        micIndicator.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
-        micText.textContent = "마이크 일시정지";
 
-        const now = Date.now();
-        // Detect rapid stops (stops within 1.5s of starting)
-        if (now - lastStartTime < 1500) {
-          consecutiveFailures++;
-        } else {
-          consecutiveFailures = 0;
-        }
-
-        clearTimeout(restartTimer);
-
+        // If the user has NOT clicked "Stop", automatically restart speech recognition in the background!
         if (userWantedSTT) {
-          // On mobile, if repeated rapid stops occur, pause auto-retry and require user touch to prevent infinite permission prompts
-          if (consecutiveFailures >= 3) {
-            console.warn("Mobile rapid restart limit reached. Requiring user touch gesture.");
-            btnResumeSTT.classList.remove('hidden');
-            btnStopSTT.classList.add('hidden');
-            btnStartSTT.classList.add('hidden');
-            showToast("스마트폰 보안 정책으로 인해 [터치하여 음성인식 재개]를 눌러주세요.", true);
-          } else {
-            restartTimer = setTimeout(() => {
-              if (userWantedSTT && !isRecognizing) {
-                try { 
-                  lastStartTime = Date.now();
-                  recognition.start(); 
-                } catch (e) { 
-                  console.warn("Auto-restart prevented by browser:", e);
-                  btnResumeSTT.classList.remove('hidden');
-                  btnStopSTT.classList.add('hidden');
-                }
+          micIndicator.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse";
+          micText.textContent = "자동 재연결 중...";
+          
+          clearTimeout(restartTimer);
+          restartTimer = setTimeout(() => {
+            if (userWantedSTT && !isRecognizing) {
+              try {
+                recognition.start();
+              } catch (e) {
+                console.warn("Auto-restart attempt:", e);
+                // Safe secondary retry
+                setTimeout(() => {
+                  if (userWantedSTT && !isRecognizing) {
+                    try { recognition.start(); } catch(err) {
+                      btnResumeSTT.classList.remove('hidden');
+                    }
+                  }
+                }, 300);
               }
-            }, 1000);
-          }
+            }
+          }, isMobile ? 150 : 250);
         } else {
-          btnStartSTT.classList.remove('hidden');
-          btnStopSTT.classList.add('hidden');
-          btnResumeSTT.classList.add('hidden');
+          resetSTTButtons();
         }
       };
 
@@ -839,23 +835,26 @@
       };
     }
 
+    function resetSTTButtons() {
+      micIndicator.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+      micText.textContent = "마이크 정지됨";
+      btnStartSTT.classList.remove('hidden');
+      btnStopSTT.classList.add('hidden');
+      btnResumeSTT.classList.add('hidden');
+    }
+
     async function startSTT() {
       userWantedSTT = true;
-      consecutiveFailures = 0;
 
-      // Pre-authorize microphone with MediaDevices first (prevents popup loops on mobile)
-      const micGranted = await requestMicPermission();
-      if (!micGranted) {
-        userWantedSTT = false;
-        return;
-      }
+      // Keep audio stream alive to ensure uninterrupted background recording
+      await enableAudioKeepAlive();
 
       if (!recognition) initSpeechRecognition();
 
       if (recognition && !isRecognizing) {
         try {
-          lastStartTime = Date.now();
           recognition.start();
+          showToast("마이크 음성인식이 시작되었습니다!");
         } catch (e) {
           console.warn("Start STT Exception:", e);
           if (e.name === 'InvalidStateError') {
@@ -866,30 +865,25 @@
     }
 
     function stopSTT() {
-      userWantedSTT = false;
-      consecutiveFailures = 0;
+      userWantedSTT = false; // User explicitly clicked stop button
       clearTimeout(restartTimer);
+      
       if (recognition && isRecognizing) {
         try { recognition.stop(); } catch(e){}
       }
-      micIndicator.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
-      micText.textContent = "마이크 대기";
-      btnStartSTT.classList.remove('hidden');
-      btnStopSTT.classList.add('hidden');
-      btnResumeSTT.classList.add('hidden');
-      showToast("마이크 음성인식이 정지되었습니다.");
+      
+      stopAudioKeepAlive();
+      resetSTTButtons();
+      showToast("마이크 음성인식이 완전히 중지되었습니다.");
     }
 
-    // Translation Logic (Client-side Google Translate API & Gemini API Fallback)
     async function performTranslation(text, targetLang) {
       if (!text.trim()) return "";
       
-      // If Gemini AI engine is toggled on
       if (useGeminiAI) {
         return await translateWithGemini(text, targetLang);
       }
 
-      // Default Free Google Translate API Endpoint
       try {
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ko&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
         const res = await fetch(url);
@@ -903,12 +897,11 @@
       return text;
     }
 
-    // Translation with Gemini AI API
     async function translateWithGemini(text, targetLang) {
       const langNames = { en: "English", vi: "Vietnamese", zh: "Simplified Chinese" };
       const systemPrompt = `You are an expert academic lecture translator. Translate the given Korean lecture speech accurately into ${langNames[targetLang] || targetLang}. Maintain original meaning and smooth flow. Respond ONLY with the translation text without explanations.`;
       
-      const apiKey = ""; // Built-in runtime API key execution
+      const apiKey = "";
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
       try {
@@ -931,7 +924,6 @@
       return text;
     }
 
-    // Handle full translation pipeline for KO -> EN, VI, ZH
     async function handleTranslationProcess(koText) {
       try {
         const [enRes, viRes, zhRes] = await Promise.all([
@@ -944,14 +936,12 @@
         updateSubtitles(viRes, "vi");
         updateSubtitles(zhRes, "zh");
 
-        // Store into database archive
         saveTranscript(koText, enRes, viRes, zhRes);
       } catch (err) {
         console.error("Translation Pipeline Error:", err);
       }
     }
 
-    // Update Subtitles UI Across All Active Layout Modes
     function updateSubtitles(text, lang) {
       if (lang === "ko") {
         subKo.textContent = text;
@@ -971,132 +961,373 @@
         floatSubZh.textContent = text;
       }
 
-      // Sync with Popout Window if opened
-      if (popoutWindow && !popoutWindow.closed) {
+      if (popoutWindow) {
         try {
-          const targetEl = popoutWindow.document.getElementById(`pop-${lang}`);
-          if (targetEl) targetEl.textContent = text;
+          const targetDoc = popoutWindow.document || popoutWindow;
+          const targetEl = targetDoc.getElementById(`pop-${lang}`);
+          if (targetEl) {
+            if (lang === "vi") targetEl.textContent = `VI: ${text}`;
+            else if (lang === "zh") targetEl.textContent = `ZH: ${text}`;
+            else targetEl.textContent = text;
+          }
         } catch(e){}
       }
     }
 
     // Render current slide
     function renderSlide() {
-      currentSlideIndex.textContent = currentSlide + 1;
-      totalSlidesCount.textContent = slides.length;
+      if (!slides || slides.length === 0) return;
+      if (currentSlide < 0) currentSlide = 0;
+      if (currentSlide >= slides.length) currentSlide = slides.length - 1;
 
       const slide = slides[currentSlide];
-      if (!slide) return;
 
-      if (slide.type === "text") {
-        textSlide.classList.remove('hidden');
+      const currentSlideIndex = document.getElementById('currentSlideIndex');
+      const totalSlidesCount = document.getElementById('totalSlidesCount');
+      const slideTypeBadge = document.getElementById('slideTypeBadge');
+      const textSlide = document.getElementById('textSlide');
+      const renderLayer = document.getElementById('renderLayer');
+      const slideTitle = document.getElementById('slideTitle');
+      const slideContent = document.getElementById('slideContent');
+      const slideBg = document.getElementById('slideBg');
+
+      if (currentSlideIndex) currentSlideIndex.textContent = currentSlide + 1;
+      if (totalSlidesCount) totalSlidesCount.textContent = slides.length;
+
+      if (!textSlide || !renderLayer) return;
+
+      if (slide.type === "image" || slide.type === "pdf" || slide.type === "canvas") {
+        textSlide.classList.add('hidden');
+        renderLayer.classList.remove('hidden');
+        renderLayer.innerHTML = '';
+
+        if (slide.element) {
+          const clonedNode = slide.element.cloneNode(true);
+          if (slide.element.tagName === 'CANVAS') {
+            const ctx = clonedNode.getContext('2d');
+            ctx.drawImage(slide.element, 0, 0);
+          }
+          renderLayer.appendChild(clonedNode);
+        } else if (slide.imageUrl) {
+          const img = document.createElement('img');
+          img.src = slide.imageUrl;
+          img.className = 'max-h-full max-w-full object-contain rounded-xl shadow-2xl';
+          renderLayer.appendChild(img);
+        }
+        if (slideTypeBadge) slideTypeBadge.textContent = (slide.type === "pdf" ? "PDF 교안" : slide.type === "image" ? "이미지 교안" : "교안 파일");
+      } else {
         renderLayer.classList.add('hidden');
-        renderLayer.innerHTML = "";
+        renderLayer.innerHTML = '';
+        textSlide.classList.remove('hidden');
 
-        slideTitle.textContent = slide.title || `Slide ${currentSlide + 1}`;
-        slideContent.textContent = slide.content || "";
-        slideBg.style.backgroundImage = slide.image ? `url('${slide.image}')` : 'none';
-        slideTypeBadge.textContent = "텍스트 교안";
-      } else if (slide.type === "image") {
-        textSlide.classList.add('hidden');
-        renderLayer.classList.remove('hidden');
-        renderLayer.innerHTML = `<img src="${slide.url}" class="max-h-full max-w-full object-contain rounded-xl shadow-2xl" alt="Slide Image" />`;
-        slideTypeBadge.textContent = "이미지 교안";
-      } else if (slide.type === "canvas") {
-        textSlide.classList.add('hidden');
-        renderLayer.classList.remove('hidden');
-        renderLayer.innerHTML = "";
-        renderLayer.appendChild(slide.canvas);
-        slideTypeBadge.textContent = "PDF / Document";
+        if (slideTitle) slideTitle.textContent = slide.title || `슬라이드 ${currentSlide + 1}`;
+        if (slideContent) slideContent.textContent = slide.content || '';
+
+        if (slideBg) {
+          if (slide.image) {
+            slideBg.style.backgroundImage = `url('${slide.image}')`;
+            slideBg.style.opacity = '0.35';
+          } else {
+            slideBg.style.backgroundImage = 'none';
+          }
+        }
+        if (slideTypeBadge) slideTypeBadge.textContent = slide.typeBadge || "기본 교안";
       }
+    }
+    window.renderSlide = renderSlide;
+
+    // Native PPTX File Parser using JSZip & DOMParser
+    async function parsePPTXFile(file) {
+      const slidesList = [];
+      try {
+        if (typeof JSZip === 'undefined') {
+          throw new Error("JSZip 라이브러리가 필요합니다.");
+        }
+        const zip = await JSZip.loadAsync(file);
+        
+        // Find slide XML files inside ppt/slides/
+        const slideFiles = [];
+        zip.folder("ppt/slides").forEach((relativePath, zipEntry) => {
+          const match = relativePath.match(/^slide(\d+)\.xml$/i);
+          if (match) {
+            slideFiles.push({
+              num: parseInt(match[1], 10),
+              path: zipEntry.name
+            });
+          }
+        });
+
+        // Sort by slide number
+        slideFiles.sort((a, b) => a.num - b.num);
+
+        if (slideFiles.length === 0) {
+          return slidesList;
+        }
+
+        const parser = new DOMParser();
+
+        for (let i = 0; i < slideFiles.length; i++) {
+          const slideEntry = slideFiles[i];
+          const xmlText = await zip.file(slideEntry.path).async("text");
+          const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+
+          // Extract text nodes (<a:t>)
+          const textNodes = xmlDoc.getElementsByTagName("a:t");
+          const texts = [];
+          for (let j = 0; j < textNodes.length; j++) {
+            const val = textNodes[j].textContent ? textNodes[j].textContent.trim() : "";
+            if (val) texts.push(val);
+          }
+
+          let slideTitle = `${file.name} (Slide ${slideEntry.num})`;
+          let slideContentText = "";
+
+          if (texts.length > 0) {
+            slideTitle = texts[0];
+            slideContentText = texts.slice(1).join("\n\n");
+          }
+
+          if (!slideContentText && texts.length === 1) {
+            slideContentText = texts[0];
+          }
+
+          // Check for embedded media images in ppt/slides/_rels/
+          const relsPath = `ppt/slides/_rels/slide${slideEntry.num}.xml.rels`;
+          let slideImage = null;
+
+          const relsFile = zip.file(relsPath);
+          if (relsFile) {
+            const relsXmlText = await relsFile.async("text");
+            const relsDoc = parser.parseFromString(relsXmlText, "text/xml");
+            const relNodes = relsDoc.getElementsByTagName("Relationship");
+
+            for (let k = 0; k < relNodes.length; k++) {
+              const target = relNodes[k].getAttribute("Target");
+              if (target && target.includes("media/")) {
+                const mediaFileName = target.split('/').pop();
+                const mediaZipPath = `ppt/media/${mediaFileName}`;
+                const mediaFile = zip.file(mediaZipPath);
+                if (mediaFile) {
+                  const imageBlob = await mediaFile.async("blob");
+                  slideImage = URL.createObjectURL(imageBlob);
+                  break;
+                }
+              }
+            }
+          }
+
+          slidesList.push({
+            type: slideImage ? "pptx_image" : "text",
+            title: slideTitle,
+            content: slideContentText || "(슬라이드 텍스트 내용 없음)",
+            image: slideImage,
+            typeBadge: `PPTX (Slide ${slideEntry.num}/${slideFiles.length})`
+          });
+        }
+      } catch (err) {
+        console.error("PPTX Parsing Exception:", err);
+      }
+      return slidesList;
     }
 
     // Handle File Upload (PDF, Images, PPTX)
-    fileInput.addEventListener('change', async (e) => {
-      const files = e.target.files;
-      if (!files || files.length === 0) return;
+    if (fileInput) {
+      fileInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files);
+        if (!files || files.length === 0) return;
 
-      showToast("교안 변환 처리 중...");
-      const newSlides = [];
+        showToast("교안 파일(PPTX/PDF/이미지)을 분석 중입니다...");
+        const newSlides = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+        for (const file of files) {
+          const fileNameLower = file.name.toLowerCase();
+          if (file.type.startsWith('image/')) {
+            const imageUrl = URL.createObjectURL(file);
+            newSlides.push({
+              type: "image",
+              imageUrl: imageUrl,
+              title: file.name
+            });
+          } else if (file.type === 'application/pdf' || fileNameLower.endsWith('.pdf')) {
+            try {
+              if (typeof pdfjsLib !== 'undefined') {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                  const page = await pdf.getPage(pageNum);
+                  const viewport = page.getViewport({ scale: 1.5 });
+                  const canvas = document.createElement('canvas');
+                  const context = canvas.getContext('2d');
+                  canvas.height = viewport.height;
+                  canvas.width = viewport.width;
+                  canvas.className = 'max-h-full max-w-full object-contain rounded-xl shadow-2xl';
 
-        if (file.type === "application/pdf") {
-          // Render PDF using PDF.js
-          try {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                  await page.render({ canvasContext: context, viewport: viewport }).promise;
 
-            for (let p = 1; p <= pdf.numPages; p++) {
-              const page = await pdf.getPage(p);
-              const viewport = page.getViewport({ scale: 1.5 });
-              const canvas = document.createElement('canvas');
-              const ctx = canvas.getContext('2d');
-              canvas.height = viewport.height;
-              canvas.width = viewport.width;
-              canvas.className = "max-h-full max-w-full object-contain rounded-xl shadow-2xl";
-
-              await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-              newSlides.push({ type: "canvas", canvas: canvas, textContent: `PDF Page ${p}` });
-            }
-          } catch (pdfErr) {
-            console.error("PDF Parsing error:", pdfErr);
-            showToast("PDF 파일을 읽는 도중 오류가 발생했습니다.", true);
-          }
-        } else if (file.type.startsWith("image/")) {
-          // Handle Image
-          const url = URL.createObjectURL(file);
-          newSlides.push({ type: "image", url: url });
-        } else if (file.name.endsWith('.pptx') || file.name.endsWith('.ppt')) {
-          // PPTX ZIP text extraction fallback
-          try {
-            const zip = await JSZip.loadAsync(file);
-            let slideIndex = 1;
-            for (let filename in zip.files) {
-              if (filename.startsWith("ppt/slides/slide") && filename.endsWith(".xml")) {
-                const xmlText = await zip.files[filename].async("text");
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                const textNodes = xmlDoc.getElementsByTagName("a:t");
-                let extractedText = "";
-                for (let t = 0; t < textNodes.length; t++) {
-                  extractedText += textNodes[t].textContent + " ";
+                  newSlides.push({
+                    type: "pdf",
+                    element: canvas,
+                    title: `${file.name} (${pageNum}/${pdf.numPages})`
+                  });
                 }
-                newSlides.push({
-                  type: "text",
-                  title: `${file.name} - Slide ${slideIndex++}`,
-                  content: extractedText.trim() || "슬라이드 텍스트 내용이 없습니다.",
-                  image: "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=1400&q=80"
-                });
               }
+            } catch (pdfErr) {
+              console.error("PDF Parsing error:", pdfErr);
+              showToast("PDF 파일을 읽는 중 오류가 발생했습니다.", true);
             }
-          } catch (pptErr) {
-            console.error("PPTX Error:", pptErr);
-            showToast("PPTX 요약 읽기 오류 발생.", true);
+          } else if (fileNameLower.endsWith('.pptx')) {
+            const parsedPptx = await parsePPTXFile(file);
+            if (parsedPptx && parsedPptx.length > 0) {
+              newSlides.push(...parsedPptx);
+            } else {
+              newSlides.push({
+                type: "text",
+                title: file.name,
+                content: `PPTX 슬라이드 파싱 결과를 가져올 수 없습니다.\n파일: ${file.name}`,
+                typeBadge: "PPTX 교안"
+              });
+            }
+          } else if (fileNameLower.endsWith('.ppt')) {
+            newSlides.push({
+              type: "text",
+              title: file.name,
+              content: `구버전 PPT 파일: ${file.name}\n\n* 안내: 구형 .ppt 형식보다 최신 .pptx 형식 또는 PDF 파일로 저장 후 업로드하시면 각 슬라이드별 텍스트 및 이미지 교안이 자동으로 추출 및 분리됩니다.`,
+              typeBadge: "PPT 교안"
+            });
+          } else {
+            newSlides.push({
+              type: "text",
+              title: file.name,
+              content: `업로드된 교안: ${file.name}\n용량: ${(file.size / 1024).toFixed(1)} KB`,
+              typeBadge: "업로드 교안"
+            });
           }
+        }
+
+        if (newSlides.length > 0) {
+          slides = newSlides;
+          currentSlide = 0;
+          renderSlide();
+          showToast(`총 ${slides.length}개의 슬라이드 교안이 구성되었습니다!`);
+        }
+      });
+    }
+
+    async function openPopoutWindow() {
+      // 1. Document Picture-in-Picture (OS 최상단 고정 기능) 지원 확인
+      if ('documentPictureInPicture' in window) {
+        try {
+          if (popoutWindow && !popoutWindow.closed) {
+            popoutWindow.close();
+          }
+
+          // PPT 화면 위나 하단에 콤팩트하게 고정 배치할 수 있는 Always-On-Top 윈도우 생성
+          popoutWindow = await window.documentPictureInPicture.requestWindow({
+            width: 980,
+            height: 180
+          });
+
+          const pipDoc = popoutWindow.document;
+
+          pipDoc.head.innerHTML = `
+            <meta charset="UTF-8">
+            <title>PPT 최상단 고정 실시간 자막창</title>
+            <script src="https://cdn.tailwindcss.com"><\/script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+            <style>
+              body {
+                font-family: 'Noto Sans KR', -apple-system, sans-serif;
+                background-color: rgba(2, 6, 23, 0.94);
+                color: #ffffff;
+                margin: 0;
+                padding: 10px 14px;
+                overflow: hidden;
+                user-select: none;
+              }
+              .glow-text { text-shadow: 0 0 10px rgba(0,0,0,0.9), 0 0 18px rgba(244, 63, 94, 0.5); }
+            </style>
+          `;
+
+          pipDoc.body.innerHTML = `
+            <div id="pipContainer" class="flex flex-col h-full justify-between">
+              <div class="flex justify-between items-center pb-1 border-b border-slate-800/80 text-[11px]">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                  <span class="font-black text-rose-400 tracking-tight">PPT 최상단 고정 실시간 자막 (Always-On-Top)</span>
+                  <span class="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold">PPT 발표화면 고정중</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button id="pipCompactBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-700">
+                    <i class="fa-solid fa-compress mr-1"></i>한 줄 콤팩트
+                  </button>
+                  <button id="pipFontDec" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-700">-A</button>
+                  <button id="pipFontInc" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-0.5 rounded text-[10px] font-bold border border-slate-700">+A</button>
+                </div>
+              </div>
+
+              <div id="pipSubMain" class="my-auto py-1 space-y-1">
+                <p id="pop-ko" class="text-base md:text-xl font-black text-white leading-tight glow-text">${subKo.textContent}</p>
+                <p id="pop-en" class="text-xs md:text-sm font-bold text-blue-300 leading-tight">${subEn.textContent}</p>
+                <div id="pipMultiLang" class="flex gap-4 text-xs font-semibold text-slate-300 pt-0.5">
+                  <span id="pop-vi" class="text-amber-300">VI: ${subVi.textContent}</span>
+                  <span id="pop-zh" class="text-red-300">ZH: ${subZh.textContent}</span>
+                </div>
+              </div>
+            </div>
+          `;
+
+          let isCompact = false;
+          let pipFontSize = 18;
+
+          const updatePipFontSize = () => {
+            const koEl = pipDoc.getElementById('pop-ko');
+            if (koEl) koEl.style.fontSize = `${pipFontSize}px`;
+          };
+
+          pipDoc.getElementById('pipFontInc')?.addEventListener('click', () => {
+            if (pipFontSize < 36) pipFontSize += 2;
+            updatePipFontSize();
+          });
+
+          pipDoc.getElementById('pipFontDec')?.addEventListener('click', () => {
+            if (pipFontSize > 12) pipFontSize -= 2;
+            updatePipFontSize();
+          });
+
+          pipDoc.getElementById('pipCompactBtn')?.addEventListener('click', () => {
+            isCompact = !isCompact;
+            const multiEl = pipDoc.getElementById('pipMultiLang');
+            const enEl = pipDoc.getElementById('pop-en');
+            const btn = pipDoc.getElementById('pipCompactBtn');
+            if (isCompact) {
+              if (multiEl) multiEl.style.display = 'none';
+              if (enEl) enEl.style.display = 'none';
+              if (btn) btn.innerHTML = '<i class="fa-solid fa-expand mr-1"></i>전체 모드';
+            } else {
+              if (multiEl) multiEl.style.display = 'flex';
+              if (enEl) enEl.style.display = 'block';
+              if (btn) btn.innerHTML = '<i class="fa-solid fa-compress mr-1"></i>한 줄 콤팩트';
+            }
+          });
+
+          showToast("PowerPoint 전체화면/발표자 화면 맨 앞(Picture-in-Picture)에 자막이 고정되었습니다!");
+          return;
+        } catch (err) {
+          console.warn("Document PIP fallback to normal popout:", err);
         }
       }
 
-      if (newSlides.length > 0) {
-        slides = newSlides;
-        currentSlide = 0;
-        renderSlide();
-        showToast(`${newSlides.length}개의 슬라이드를 불러왔습니다!`);
-      }
-    });
-
-    // Separate Popout Window Subtitle View
-    function openPopoutWindow() {
+      // 2. 일반 팝업창 Fallback
       if (popoutWindow && !popoutWindow.closed) {
         popoutWindow.focus();
         return;
       }
 
-      popoutWindow = window.open('', 'PopoutSubtitles', 'width=960,height=600,scrollbars=yes,resizable=yes');
+      popoutWindow = window.open('', 'PopoutSubtitles', 'width=960,height=260,scrollbars=yes,resizable=yes');
       if (!popoutWindow) {
-        showToast("팝업창이 차단되었습니다. 브라우저 팝업을 허용해 주세요.", true);
+        showToast("팝업창이 차단되었습니다. 브라우저 팝업 허용을 승인해 주세요.", true);
         return;
       }
 
@@ -1104,54 +1335,53 @@
         <!DOCTYPE html>
         <html class="dark">
         <head>
-          <title>실시간 분리 자막창 | Woosong Global Translator</title>
+          <title>PPT 발표용 분리 자막창 | Woosong Global Translator</title>
           <script src="https://cdn.tailwindcss.com"><\/script>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
           <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
           <style>
-            body { font-family: 'Noto Sans KR', sans-serif; background-color: #020617; color: #f8fafc; }
-            .glow { text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+            body { font-family: 'Noto Sans KR', sans-serif; background-color: #020617; color: #f8fafc; user-select: none; }
+            .glow { text-shadow: 0 0 12px rgba(0,0,0,0.9), 0 0 10px rgba(244, 63, 94, 0.5); }
           </style>
         </head>
-        <body class="p-6 min-h-screen flex flex-col justify-between">
-          <header class="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
-            <h1 class="text-lg font-black text-rose-500 tracking-tight">WOOSONG GLOBAL LECTURE - LIVE SUBTITLES</h1>
-            <span class="text-xs bg-rose-500/20 text-rose-300 border border-rose-500/40 px-3 py-1 rounded-full font-bold">프로젝터 / 외부 화면용</span>
+        <body class="p-4 min-h-screen flex flex-col justify-between">
+          <header class="flex justify-between items-center border-b border-slate-800 pb-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+              <h1 class="text-sm font-black text-rose-500 tracking-tight uppercase">PPT 발표용 분리 자막창</h1>
+            </div>
+            <p class="text-[10px] text-slate-400">Windows: Shift+Win+방향키로 발표 화면 위에 쉽게 위치시키세요</p>
           </header>
           
-          <main class="space-y-4 flex-1 flex flex-col justify-center my-auto">
-            <div class="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl shadow-xl">
-              <span class="text-xs font-bold text-slate-400 uppercase">한국어 (KO)</span>
-              <p id="pop-ko" class="text-xl md:text-3xl font-bold text-white leading-relaxed mt-1 glow">${subKo.textContent}</p>
+          <main class="space-y-2 flex-1 flex flex-col justify-center my-auto">
+            <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl shadow-xl">
+              <span class="text-[10px] font-bold text-slate-400 uppercase">한국어 (KO)</span>
+              <p id="pop-ko" class="text-xl md:text-2xl font-black text-white leading-tight mt-0.5 glow">${subKo.textContent}</p>
             </div>
             
-            <div class="bg-slate-900/90 border border-blue-900/60 p-4 rounded-2xl shadow-xl">
-              <span class="text-xs font-bold text-blue-400 uppercase">English (EN)</span>
-              <p id="pop-en" class="text-lg md:text-2xl font-semibold text-blue-200 leading-relaxed mt-1">${subEn.textContent}</p>
+            <div class="bg-slate-900/90 border border-blue-900/60 p-2.5 rounded-xl shadow-xl">
+              <span class="text-[10px] font-bold text-blue-400 uppercase">English (EN)</span>
+              <p id="pop-en" class="text-base md:text-lg font-bold text-blue-200 leading-tight mt-0.5">${subEn.textContent}</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="bg-slate-900/90 border border-amber-900/60 p-3.5 rounded-2xl">
-                <span class="text-xs font-bold text-amber-400 uppercase">Tiếng Việt (VI)</span>
-                <p id="pop-vi" class="text-base md:text-lg font-medium text-amber-200 mt-1">${subVi.textContent}</p>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="bg-slate-900/90 border border-amber-900/60 p-2 rounded-lg">
+                <span class="text-[10px] font-bold text-amber-400 uppercase">Tiếng Việt (VI)</span>
+                <p id="pop-vi" class="text-xs md:text-sm font-semibold text-amber-200 mt-0.5">VI: ${subVi.textContent}</p>
               </div>
-              <div class="bg-slate-900/90 border border-red-900/60 p-3.5 rounded-2xl">
-                <span class="text-xs font-bold text-red-400 uppercase">中文 (ZH)</span>
-                <p id="pop-zh" class="text-base md:text-lg font-medium text-red-200 mt-1">${subZh.textContent}</p>
+              <div class="bg-slate-900/90 border border-red-900/60 p-2 rounded-lg">
+                <span class="text-[10px] font-bold text-red-400 uppercase">中文 (ZH)</span>
+                <p id="pop-zh" class="text-xs md:text-sm font-semibold text-red-200 mt-0.5">ZH: ${subZh.textContent}</p>
               </div>
             </div>
           </main>
-
-          <footer class="border-t border-slate-800 pt-3 mt-4 text-center text-xs text-slate-500">
-            Woosong University AI Lecture Translator Subtitle Display Window
-          </footer>
         </body>
         </html>
       `);
       popoutWindow.document.close();
-      showToast("별도 자막 창이 새로 열렸습니다!");
+      showToast("PPT 발표용 자막 창이 분리되었습니다!");
     }
 
-    // Draggable Floating Subtitle Panel Handler
     function makeFloatingDraggable() {
       const header = document.getElementById('floatingHeader');
       const widget = floatingSubtitleWidget;
@@ -1170,12 +1400,11 @@
       function onPointerMove(e) {
         if (!isDragging) return;
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.clientY : e.clientY;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
         let x = clientX - offsetX;
         let y = clientY - offsetY;
 
-        // Keep within viewport boundaries
         x = Math.max(10, Math.min(window.innerWidth - widget.offsetWidth - 10, x));
         y = Math.max(10, Math.min(window.innerHeight - widget.offsetHeight - 10, y));
 
@@ -1197,7 +1426,6 @@
       document.addEventListener('touchend', onPointerUp);
     }
 
-    // Gemini AI Assistant Execution Function
     async function askGeminiAI(userQuery) {
       const slideInfo = slides[currentSlide] ? `Title: ${slides[currentSlide].title || 'N/A'}, Content: ${slides[currentSlide].content || 'N/A'}` : "None";
       const recentLogs = lectureLogs.slice(0, 5).map(l => l.ko).join(' ');
@@ -1210,7 +1438,6 @@ Answer the user's question concisely in polite Korean (or the language requested
       const apiKey = "";
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
 
-      // Append user message to AI chat UI
       appendAiMessage("user", userQuery);
       const loadingMsgEl = appendAiMessage("ai", "Gemini AI가 생각 중입니다...");
 
@@ -1250,12 +1477,10 @@ Answer the user's question concisely in polite Korean (or the language requested
       return msgEl;
     }
 
-    // Event Listeners Setup
     btnStartSTT.addEventListener('click', startSTT);
     btnStopSTT.addEventListener('click', stopSTT);
     btnResumeSTT.addEventListener('click', startSTT);
 
-    // Engine Toggle (Google Translate <-> Gemini AI)
     btnToggleEngine.addEventListener('click', () => {
       useGeminiAI = !useGeminiAI;
       if (useGeminiAI) {
@@ -1271,7 +1496,6 @@ Answer the user's question concisely in polite Korean (or the language requested
       }
     });
 
-    // Test Utterance Simulation
     btnTestTranslate.addEventListener('click', () => {
       const testPhrases = [
         "오늘 강의에서는 인공지능 기반 실시간 자막 시스템의 구조에 대해 설명합니다.",
@@ -1447,12 +1671,18 @@ Answer the user's question concisely in polite Korean (or the language requested
     });
 
     // Application Initialization Entrypoint
-    window.addEventListener('DOMContentLoaded', () => {
+    function initApp() {
       initFirebase();
       initSpeechRecognition();
       renderSlide();
       makeFloatingDraggable();
-    });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
   </script>
 </body>
 </html>
